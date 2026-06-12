@@ -131,11 +131,12 @@ const sameModelCount = Math.floor(2 + Math.random() * 6)
         <ellipse v-for="(r, i) in [12, 22, 30]" :key="i"
                  cx="50" cy="35" :rx="r" :ry="r * 0.62"
                  fill="none" stroke="rgba(77,201,255,0.10)" stroke-width="0.15" stroke-dasharray="0.4 0.6"/>
-        <line v-for="(e, i) in edges" :key="i"
-              v-if="nodes[e.a] && nodes[e.b]"
-              :x1="nodes[e.a].x" :y1="nodes[e.a].y * 0.7"
-              :x2="nodes[e.b].x" :y2="nodes[e.b].y * 0.7"
-              stroke="rgba(77,201,255,0.30)" stroke-width="0.18" stroke-dasharray="0.5 0.5"/>
+        <template v-for="(e, i) in edges" :key="i">
+          <line v-if="nodes[e.a] && nodes[e.b]"
+                :x1="nodes[e.a].x" :y1="nodes[e.a].y * 0.7"
+                :x2="nodes[e.b].x" :y2="nodes[e.b].y * 0.7"
+                stroke="rgba(77,201,255,0.30)" stroke-width="0.18" stroke-dasharray="0.5 0.5"/>
+        </template>
         <g v-for="(n, i) in nodes" :key="i"
            style="animation: node-pop 0.4s ease forwards"
            :style="{ transformOrigin: `${n.x}px ${n.y * 0.7}px` }">

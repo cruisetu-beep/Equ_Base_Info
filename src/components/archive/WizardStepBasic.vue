@@ -168,6 +168,23 @@ const errors = ref({})
       </div>
     </div>
 
+    <!-- AI 智能解析 -->
+    <div class="form-section" style="padding-top:0">
+      <div class="ai-analysis-card">
+        <div class="ai-analysis-head">
+          <AppIcon name="sparkles" :size="14" stroke="var(--brand)" />
+          AI 智能解析
+        </div>
+        <div class="ai-analysis-body">
+          <p><strong>节能改造：</strong>2020 - 2023 年间实施 4 次节能改造，累计节能量 176.86 吨标煤。如 2023 年照明系统续照明改造，投资 7.16 万元，节能量 32.86 吨标煤；2022 年照明系统 LED 灯具改造，投资 19.76 万元，节能量 38.25 吨标煤等。</p>
+          <p><strong>能源审计：</strong>2014 年进行了上海新天地朗廷酒店三级能源审计。</p>
+          <p><strong>绿色建筑：</strong>2010 年获绿色饭店金叶级认证，2005 年获 LEED 注册级认证。</p>
+          <p><strong>能效提升：</strong>本次能效提升统计设备 19 台，其中低能效设备 3 台。</p>
+          <p><strong>建议：</strong>对 BA 系统进行优化，修复冷通讯、校准温度 / 压力测点数据准确性、更换冷却水供水温度传感器并建立正确联动关系，恢复自动变频控制功能。同时，应尽快实施对蒸汽管道进行保温处理、修复或替换真空热水锅炉热水主管流量计等未实施的节能措施，以进一步降低能耗，提高能源利用效率。</p>
+        </div>
+      </div>
+    </div>
+
     <div class="form-actions">
       <div class="form-progress">
         <span>录入完成度</span>
@@ -218,4 +235,22 @@ const errors = ref({})
   font-family: "JetBrains Mono", monospace;
 }
 .param-tag .conf { color: var(--text-3); margin-left: 4px; font-size: 10px; }
+
+.ai-analysis-card {
+  background: linear-gradient(135deg, #eef1ff 0%, #f5f0ff 100%);
+  border: 1px solid rgba(122,92,255,0.20);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.ai-analysis-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--brand);
+  margin-bottom: 10px;
+}
+.ai-analysis-body {
+  font-size: 12.5px; color: var(--text-1); line-height: 1.8;
+}
+.ai-analysis-body p { margin: 0 0 8px; }
+.ai-analysis-body p:last-child { margin-bottom: 0; }
+.ai-analysis-body strong { color: var(--text-0); }
 </style>

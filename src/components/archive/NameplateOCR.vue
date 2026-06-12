@@ -155,7 +155,7 @@ onUnmounted(() => {
         <span class="sub mono">VLM-Nameplate v2</span>
       </div>
       <div class="ocr-log-body">
-        <span v-if="logs.length === 0" style="color:#6a7da3">等待图像输入…</span>
+        <span v-if="logs.length === 0" style="color:#9db3d6;position:relative;z-index:1">等待图像输入…</span>
         <span v-for="(l, i) in logs" :key="i" class="ll">
           <span class="ts">{{ l.ts }}</span>
           <span :class="`lv-${l.lv}`">[{{ l.lv.toUpperCase() }}]</span> {{ l.msg }}
@@ -268,19 +268,33 @@ onUnmounted(() => {
 .ocr-mini-btn:hover { background: rgba(77,201,255,0.2); }
 
 .ocr-log {
-  background: linear-gradient(135deg, #0a1628 0%, #0d1b35 60%, #0a1628 100%);
+  background: #243650;
   border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
   padding: 14px; font-family: "JetBrains Mono", monospace;
   font-size: 10.5px; color: #c5d3ed; line-height: 1.7;
   display: flex; flex-direction: column; min-height: 280px;
-  box-shadow: inset 0 0 60px rgba(77,201,255,0.05);
+  position: relative; overflow: hidden;
 }
-.ocr-log-head { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 10px; }
+.ocr-log::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(77,201,255,0.06), transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.ocr-log::after {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(77,201,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77,201,255,0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+.ocr-log-head { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 10px; }
 .ocr-log-head .h { color: #eaf2ff; font-size: 12px; font-family: "Noto Sans SC", sans-serif; }
-.ocr-log-head .sub { color: #6a7da3; font-size: 10px; margin-left: auto; }
-.ocr-log-body { flex: 1; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; }
+.ocr-log-head .sub { color: #9db3d6; font-size: 10px; margin-left: auto; }
+.ocr-log-body { position: relative; z-index: 1; flex: 1; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; }
 .ocr-log-body .ll { display: block; animation: log-in 0.25s ease forwards; }
-.ocr-log .ts { color: #6a7da3; margin-right: 6px; }
+.ocr-log .ts { color: #9db3d6; margin-right: 6px; }
 .ocr-log .lv-info { color: #4dc9ff; }
 .ocr-log .lv-ok   { color: #2bd9a8; }
 </style>
+

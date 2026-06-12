@@ -1,0 +1,39 @@
+/* ── global.css ──────────────────────────────────────────────────
+   原 Info_base_2.html <head> 内 <style> 块原样迁入，零修改
+──────────────────────────────────────────────────────────────── */
+:root {
+  --bg-0:#f3f6fb; --bg-1:#ffffff; --bg-2:#eef3fb; --bg-3:#e3ebf7;
+  --line:rgba(60,110,200,0.14); --line-strong:rgba(60,110,200,0.30);
+  --text-0:#0f1d3d; --text-1:#38496b; --text-2:#6a7da3; --text-3:#97a4c0;
+  --brand:#1f6feb; --brand-2:#2f7fff; --brand-glow:#4dc9ff;
+  --accent:#7a5cff; --ok:#18a572; --warn:#d97706; --danger:#e54e6e;
+  /* Info_base_2 副色调：低效橙、淘汰红、限期红、鼓励黄、强制深红 */
+  --eol-red:#e0394f;       /* 强制淘汰 */
+  --eol-deadline:#f04e69;  /* 限期淘汰（带紧迫感） */
+  --eol-low:#ea8c2e;       /* 低效（建议改造） */
+  --eol-encourage:#c79a1c; /* 鼓励淘汰 */
+  --grid:rgba(60,110,200,0.05);
+}
+* { box-sizing:border-box; }
+html,body {
+  margin:0; padding:0; background:var(--bg-0); color:var(--text-0);
+  font-family:"Noto Sans SC","PingFang SC",-apple-system,sans-serif;
+  font-size:14px; overflow-x:hidden; min-height:100vh;
+}
+body::before {
+  content:""; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 1200px 600px at 20% 0%,rgba(47,127,255,.10),transparent 60%),
+    radial-gradient(ellipse 800px 500px at 90% 30%,rgba(224,57,79,.05),transparent 60%),
+    linear-gradient(180deg,#f3f6fb 0%,#e8eef8 100%);
+  z-index:-2;
+}
+body::after {
+  content:""; position:fixed; inset:0;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:48px 48px; z-index:-1;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 40%,black,transparent 80%);
+}
+#app { min-height:100vh; }

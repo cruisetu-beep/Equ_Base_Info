@@ -1,0 +1,372 @@
+<script setup>
+// ── components/judge/JudgeRunner.vue ──────────────────────────────
+import { ref, computed, watch, onUnmounted } from 'vue'
+import AppIcon from '@/components/common/AppIcon.vue'
+import RuleHitMini from './RuleHitMini.vue'
+import { judgeDevice } from '@/utils/judgeEngine'
+import { generateStepLogs, tokenizeJudgeLog } from '@/utils/logHelpers'
+import { DEV_TYPE_MAP } from '@/data/devices'
+import { JUDGE_STATUS_MAP } from '@/data/rules'
+
+const props = defineProps({
+  devices: { type: Array, required: true },
+  rules:   { type: Array, required: true },
+})
+const emit = defineEmits(['done', 'cancel'])
+
+const STEPS = [
+  { k: 'load',  n: '加载规则库',     d: '读取 v1.3 规则库...' },
+  { k: 'type1', n: '一级类型识别',   d: '匹配设备一级类型' },
+  { k: 'type2', n: '二级类型匹配',   d: '匹配设备子类别' },
+  { k: 'model', n: '型号系列匹配',   d: '匹配淘汰目录型号系列' },
+  { k: 'spec',  n: '规格区间校验',   d: '功率/容量/流量等区间判定' },
+  { k: 'year',  n: '投运年份校验',   d: '对照截止日期判断' },
+  { k: 'final', n: '综合判定',       d: '汇总命中规则，输出结论' },
+]
+
+const curIdx   = ref(0)
+const curStep  = ref(-1)
+const results  = ref([])
+const logs     = ref([])
+const judgeRes = ref(null)
+const phase    = ref('running') // running | done
+
+let stepTimer = null
+
+function scheduleNext(delay) {
+  clearTimeout(stepTimer)
+  stepTimer = setTimeout(advance, delay)
+}
+
+function advance() {
+  if (phase.value === 'done') return
+
+  // 当前设备所有步骤完成
+  if (curStep.value >= STEPS.length - 1) {
+    results.value = [...results.value, judgeRes.value]
+    const nextIdx = curIdx.value + 1
+    if (nextIdx >= props.devices.length) {
+      phase.value = 'done'
+      setTimeout(() => emit('done', results.value), 400)
+      return
+    }
+    curIdx.value  = nextIdx
+    curStep.value = -1
+    logs.value    = []
+    judgeRes.value = judgeDevice(props.devices[nextIdx], props.rules)
+    scheduleNext(200)
+    return
+  }
+
+  curStep.value += 1
+  // 生成本步日志
+  const step = STEPS[curStep.value]
+  const newLogs = generateStepLogs(step.k, judgeRes.value, props.devices[curIdx.value])
+  logs.value = [...logs.value, ...newLogs]
+  scheduleNext(curStep.value === STEPS.length - 1
+    ? (props.devices.length === 1 ? 1200 : 700)
+    : 320)
+}
+
+// 初始化第一台设备
+if (props.devices.length > 0) {
+  judgeRes.value = judgeDevice(props.devices[0], props.rules)
+  scheduleNext(200)
+}
+
+onUnmounted(() => clearTimeout(stepTimer))
+
+// ── computed ────────────────────────────────────────────────────
+const curDevice  = computed(() => props.devices[curIdx.value])
+const devType    = computed(() => DEV_TYPE_MAP[curDevice.value?.typeK] || DEV_TYPE_MAP.other)
+const finalStatus = computed(() =>
+  curStep.value >= STEPS.length - 1 && judgeRes.value ? judgeRes.value.status : null)
+const finalMeta = computed(() => finalStatus.value ? JUDGE_STATUS_MAP[finalStatus.value] : null)
+
+const progressPct = computed(() => {
+  if (!props.devices.length) return 0
+  return Math.round(((curIdx.value + (curStep.value + 1) / STEPS.length) / props.devices.length) * 100)
+})
+</script>
+
+<template>
+  <div v-if="phase === 'done'" style="padding:80px;text-align:center;color:var(--text-2)">
+    <div class="ai-orb" style="width:48px;height:48px;margin:0 auto 14px"/>
+    <div style="font-size:14px">判定完成，正在汇总结果…</div>
+  </div>
+
+  <div v-else-if="curDevice" class="judge-runner float-in">
+    <!-- 顶部操作栏 -->
+    <div class="actions-bar">
+      <div class="lbl">
+        <template v-if="devices.length === 1">
+          正在判定 <strong style="color:var(--text-0)">{{ devices[0].name || '—' }}</strong>
+        </template>
+        <template v-else>
+          批量判定 <strong style="color:var(--text-0)">{{ devices.length }}</strong> 台设备 ·
+          当前 <strong style="color:var(--brand-2)">{{ Math.min(curIdx + 1, devices.length) }}</strong> / {{ devices.length }}
+        </template>
+      </div>
+      <button class="btn ghost" style="padding:6px 12px" @click="$emit('cancel')">
+        <AppIcon name="chevron-left" :size="12" /> 返回
+      </button>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="runner-progress">
+      <div class="lbl">
+        <AppIcon name="zap" :size="14" stroke="var(--brand)" />
+        {{ devices.length > 1 ? '批量判定进度' : '判定进度' }}
+      </div>
+      <div class="bar">
+        <div class="bar-fill" :style="{ width: `${progressPct}%` }" />
+      </div>
+      <span class="pct">{{ progressPct }}%</span>
+    </div>
+
+    <div class="runner-grid">
+      <!-- 左：当前设备卡 -->
+      <div class="cur-dev-card" :style="{ '--cl': devType.color }">
+        <div class="head">
+          <span class="pulse" />
+          正在判定 · 设备 #{{ curIdx + 1 }}
+        </div>
+        <div class="ic-row">
+          <div class="thumb">
+            <AppIcon :name="devType.icon" :size="26" :stroke="devType.color" />
+          </div>
+          <div>
+            <div class="code">{{ curDevice.code || `TEMP-${curIdx}` }}</div>
+            <div class="name">{{ curDevice.name || '未命名设备' }}</div>
+          </div>
+        </div>
+        <div class="params">
+          <div
+            v-for="([k, v]) in Object.entries(curDevice.params || {}).slice(0, 4)"
+            :key="k"
+            class="param-row"
+          >
+            <span class="pl">{{ k }}</span><span class="pv">{{ v }}</span>
+          </div>
+        </div>
+        <div class="info-rows">
+          <div><span class="lbl">类型：</span>{{ devType.label }} / {{ curDevice.type2 || '—' }}</div>
+          <div><span class="lbl">型号：</span><span class="mono">{{ curDevice.model || '—' }}</span></div>
+          <div><span class="lbl">投运：</span>{{ curDevice.year || '—' }} 年</div>
+          <div v-if="curDevice.building"><span class="lbl">建筑：</span>{{ curDevice.building }}</div>
+        </div>
+      </div>
+
+      <!-- 中：步骤 + 日志 + 结果 banner -->
+      <div class="runner-mid">
+        <div class="head">
+          <div class="ai-orb" style="width:30px;height:30px" />
+          <div>
+            <h4>判定流水线</h4>
+            <div class="sub">JudgeEngine v1.3 · 435 条规则</div>
+          </div>
+        </div>
+
+        <div class="step-list">
+          <div
+            v-for="(s, i) in STEPS" :key="s.k"
+            :class="['step-row', curStep === i && 'active', curStep > i && 'done']"
+          >
+            <div class="dot">
+              <AppIcon v-if="curStep > i" name="check" :size="10" />
+              <template v-else>{{ String(i + 1).padStart(2, '0') }}</template>
+            </div>
+            <span>{{ s.n }}</span>
+            <span v-if="curStep > i" class="step-stat">✓</span>
+          </div>
+        </div>
+
+        <div class="log-area">
+          <template v-if="logs.length === 0">
+            <span class="ll">> 初始化判定上下文…</span>
+            <span class="ll">> 加载规则库 v1.3 · 解析设备特征…</span>
+          </template>
+          <span v-for="(l, i) in logs" :key="i" class="ll">
+            <span class="ts">{{ l.ts }}</span>
+            <span :class="`lv-${l.lv}`">[{{ l.lv.toUpperCase() }}]</span>
+            <!-- token 着色 -->
+            <template v-for="(tok, j) in tokenizeJudgeLog(l.msg)" :key="j">
+              <span v-if="tok.type === 'ent'"    class="ent">{{ tok.value }}</span>
+              <span v-else-if="tok.type === 'cyan'"   :style="{ color: '#4dc9ff' }">{{ tok.value }}</span>
+              <span v-else-if="tok.type === 'yellow'" :style="{ color: '#ffb547' }">{{ tok.value }}</span>
+              <span v-else-if="tok.type === 'pink'"   :style="{ color: '#ff8da0', fontWeight: 600 }">{{ tok.value }}</span>
+              <template v-else>{{ tok.value }}</template>
+            </template>
+          </span>
+        </div>
+
+        <div v-if="finalMeta" :class="['final-banner', finalMeta.cls]">
+          <div class="iconbox"><AppIcon :name="finalMeta.icon" :size="20" /></div>
+          <div>
+            <div class="h">判定结果：{{ finalMeta.label }}</div>
+            <div class="d">
+              {{ judgeRes.hits.length > 0
+                ? `命中 ${judgeRes.hits.length} 条规则 · ${finalMeta.desc}`
+                : finalMeta.desc }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：队列 / 命中规则 -->
+      <div class="runner-right">
+        <!-- 批量：队列列表 -->
+        <template v-if="devices.length > 1">
+          <h4><AppIcon name="list" :size="14" stroke="var(--brand)" /> 判定队列 ({{ results.length }}/{{ devices.length }})</h4>
+          <div class="queue-list">
+            <div
+              v-for="(d, i) in devices" :key="i"
+              :class="['queue-item', i === curIdx && 'curr', results[i] && 'done']"
+            >
+              <div class="qidx">{{ i + 1 }}</div>
+              <div class="qname">{{ d.name || `设备 ${i + 1}` }}</div>
+              <span v-if="results[i]"
+                    :class="['qstat level-tag', JUDGE_STATUS_MAP[results[i].status].cls]"
+                    :style="{
+                      background: JUDGE_STATUS_MAP[results[i].status].cls === 'phaseout' ? 'var(--eol-red)'
+                                : JUDGE_STATUS_MAP[results[i].status].cls === 'low_eff'  ? 'var(--eol-low)'
+                                : 'rgba(24,165,114,0.18)',
+                      color: JUDGE_STATUS_MAP[results[i].status].cls === 'normal' ? 'var(--ok)' : 'white',
+                    }">
+                {{ JUDGE_STATUS_MAP[results[i].status].label }}
+              </span>
+              <span v-else-if="i === curIdx" class="qstat" style="color:var(--brand)">判定中…</span>
+              <span v-else class="qstat" style="color:var(--text-3)">等待</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- 单台 / 无队列：命中规则预览 -->
+        <template v-else>
+          <h4><AppIcon name="rule" :size="14" stroke="var(--brand)" /> 实时命中规则</h4>
+          <div
+            v-if="judgeRes && curStep >= STEPS.length - 1 && judgeRes.hits.length > 0"
+            style="display:flex;flex-direction:column;gap:10px"
+          >
+            <RuleHitMini v-for="(h, i) in judgeRes.hits" :key="i" :hit="h" />
+          </div>
+          <div
+            v-else-if="judgeRes && curStep >= STEPS.length - 1"
+            style="padding:24px;text-align:center;color:var(--text-2);font-size:12px;
+                   background:rgba(43,217,168,0.06);border:1px dashed rgba(43,217,168,0.30);border-radius:8px"
+          >
+            <AppIcon name="check" :size="28" stroke="var(--ok)" />
+            <div style="margin-top:6px;color:var(--ok);font-weight:500">未命中任何淘汰规则</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:4px">设备能效符合现行标准</div>
+          </div>
+          <div v-else style="padding:30px;text-align:center;color:var(--text-3);font-size:11.5px">
+            规则匹配中，命中后将在此显示…
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.judge-runner { display: flex; flex-direction: column; gap: 16px; }
+
+.actions-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; background: white; border: 1px solid var(--line); border-radius: 10px;
+}
+.actions-bar .lbl { font-size: 12px; color: var(--text-2); }
+
+.runner-progress {
+  padding: 14px 20px; background: white; border: 1px solid var(--line); border-radius: 10px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 1px 2px rgba(60,110,200,0.04);
+}
+.runner-progress .lbl { font-size: 13px; color: var(--text-0); font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.runner-progress .bar { flex: 1; height: 6px; background: #e3ebf7; border-radius: 3px; overflow: hidden; position: relative; }
+.runner-progress .bar-fill {
+  height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-glow));
+  transition: width 0.4s; position: relative;
+}
+.runner-progress .bar-fill::after { content: ""; position: absolute; right: -2px; top: -2px; bottom: -2px; width: 6px; background: white; box-shadow: 0 0 12px var(--brand-glow); }
+.runner-progress .pct { font-family: "JetBrains Mono", monospace; color: var(--text-1); font-size: 12px; min-width: 60px; text-align: right; }
+
+.runner-grid { display: grid; grid-template-columns: 320px 1fr 320px; gap: 16px; }
+
+.cur-dev-card {
+  background: white; border: 1px solid var(--line); border-radius: 12px;
+  padding: 20px; height: fit-content; position: sticky; top: 80px;
+  box-shadow: 0 1px 2px rgba(60,110,200,0.04);
+}
+.cur-dev-card .head { display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px dashed var(--line); margin-bottom: 14px; font-size: 12px; color: var(--text-2); }
+.cur-dev-card .head .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 8px var(--brand); animation: pulse 1.4s ease-in-out infinite; }
+.cur-dev-card .ic-row { display: flex; gap: 12px; margin-bottom: 14px; }
+.cur-dev-card .thumb { width: 52px; height: 52px; border-radius: 10px; background: linear-gradient(135deg, #eaf2ff, #e2dcff); border: 1px solid var(--line-strong); display: grid; place-items: center; color: var(--cl); flex-shrink: 0; }
+.cur-dev-card .name { font-size: 14.5px; color: var(--text-0); font-weight: 500; line-height: 1.35; }
+.cur-dev-card .code { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--text-2); }
+.cur-dev-card .params { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 10px 12px; background: #f7f9fd; border-radius: 8px; border: 1px dashed var(--line); margin-bottom: 12px; }
+.cur-dev-card .param-row { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; }
+.cur-dev-card .param-row .pl { color: var(--text-2); }
+.cur-dev-card .param-row .pv { font-family: "JetBrains Mono", monospace; color: var(--text-0); font-weight: 500; }
+.cur-dev-card .info-rows { font-size: 12px; color: var(--text-1); line-height: 1.7; }
+.cur-dev-card .info-rows .lbl { color: var(--text-2); }
+
+.runner-mid {
+  background: linear-gradient(180deg, #0f1d3d, #1a2a55);
+  border: 1px solid #1a2950; border-radius: 12px;
+  padding: 20px; min-height: 540px; color: #eaf2ff;
+}
+.runner-mid .head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 14px; }
+.runner-mid .head h4 { margin: 0; font-size: 14px; color: #eaf2ff; }
+.runner-mid .head .sub { font-size: 11px; color: #8da3c8; font-family: "JetBrains Mono", monospace; }
+
+.step-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.step-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; font-size: 12.5px; color: #6a7da3; transition: all 0.2s; }
+.step-row .dot { width: 18px; height: 18px; border-radius: 50%; background: rgba(77,201,255,0.10); border: 1px solid rgba(77,201,255,0.2); display: grid; place-items: center; font-family: "JetBrains Mono", monospace; font-size: 9px; color: #6a7da3; flex-shrink: 0; }
+.step-row.active { background: rgba(77,201,255,0.10); color: #eaf2ff; }
+.step-row.active .dot { background: linear-gradient(135deg, #4dc9ff, #2f7fff); border-color: transparent; color: white; box-shadow: 0 0 12px rgba(77,201,255,0.5); }
+.step-row.done { color: #c5d3ed; }
+.step-row.done .dot { background: rgba(43,217,168,0.18); border-color: rgba(43,217,168,0.45); color: #2bd9a8; }
+.step-row .step-stat { margin-left: auto; font-size: 11px; font-family: "JetBrains Mono", monospace; }
+.step-row.done .step-stat { color: #2bd9a8; }
+
+.log-area {
+  background: #0a142e; border: 1px solid #1a2950; border-radius: 8px;
+  padding: 12px; font-family: "JetBrains Mono", monospace;
+  font-size: 11px; color: #c5d3ed; line-height: 1.8;
+  max-height: 280px; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.log-area .ll { display: block; animation: log-in 0.25s ease forwards; }
+.log-area .ts    { color: #6a7da3; margin-right: 8px; }
+.log-area .lv-info { color: #4dc9ff; }
+.log-area .lv-ok   { color: #2bd9a8; }
+.log-area .lv-warn { color: #ffb547; }
+.log-area .lv-err  { color: #ff6b8a; }
+.log-area .ent     { color: #b3a4ff; }
+
+.final-banner { margin-top: 14px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: center; gap: 14px; animation: float-in 0.4s ease both; }
+.final-banner.normal  { background: linear-gradient(90deg, rgba(43,217,168,0.18), rgba(43,217,168,0.05)); border: 1px solid rgba(43,217,168,0.45); }
+.final-banner.low_eff { background: linear-gradient(90deg, rgba(234,140,46,0.20), rgba(234,140,46,0.05)); border: 1px solid rgba(234,140,46,0.45); }
+.final-banner.phaseout { background: linear-gradient(90deg, rgba(224,57,79,0.22), rgba(224,57,79,0.06)); border: 1px solid rgba(224,57,79,0.50); }
+.final-banner .iconbox { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: white; flex-shrink: 0; }
+.final-banner.normal .iconbox   { background: linear-gradient(135deg, #2bd9a8, #18a572); box-shadow: 0 0 16px rgba(43,217,168,0.4); }
+.final-banner.low_eff .iconbox  { background: linear-gradient(135deg, #ffb547, #ea8c2e); box-shadow: 0 0 16px rgba(234,140,46,0.4); }
+.final-banner.phaseout .iconbox { background: linear-gradient(135deg, #ff6b8a, #e0394f); box-shadow: 0 0 16px rgba(224,57,79,0.4); }
+.final-banner .h { font-size: 15px; font-weight: 600; color: white; }
+.final-banner .d { font-size: 11.5px; color: #c5d3ed; margin-top: 3px; }
+
+.runner-right { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 18px; height: fit-content; position: sticky; top: 80px; box-shadow: 0 1px 2px rgba(60,110,200,0.04); }
+.runner-right h4 { margin: 0 0 12px; font-size: 13px; color: var(--text-0); display: flex; align-items: center; gap: 8px; }
+
+.queue-list { display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto; }
+.queue-item { padding: 10px 12px; border-radius: 8px; background: #f8faff; border: 1px solid var(--line); font-size: 12px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+.queue-item.curr { background: linear-gradient(90deg, rgba(47,127,255,0.10), transparent); border-color: var(--brand); box-shadow: 0 2px 8px rgba(47,127,255,0.10); }
+.queue-item.done { opacity: 0.85; }
+.queue-item .qidx { width: 22px; height: 22px; border-radius: 6px; background: white; border: 1px solid var(--line); font-family: "JetBrains Mono", monospace; font-size: 10.5px; display: grid; place-items: center; color: var(--text-2); flex-shrink: 0; }
+.queue-item.curr .qidx { background: linear-gradient(135deg, var(--brand), var(--brand-2)); border-color: transparent; color: white; }
+.queue-item.done .qidx { background: rgba(24,165,114,0.10); border-color: var(--ok); color: var(--ok); }
+.queue-item .qname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); }
+.queue-item.curr .qname { color: var(--text-0); font-weight: 500; }
+.queue-item .qstat { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-family: "JetBrains Mono", monospace; flex-shrink: 0; }
+</style>

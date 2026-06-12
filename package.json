@@ -1,6 +1,7 @@
 {
   "name": "eol-device",
   "version": "1.0.0",
+  "type": "module",
   "description": "低效淘汰设备库 · 设备能效管理",
   "scripts": {
     "dev": "vite",

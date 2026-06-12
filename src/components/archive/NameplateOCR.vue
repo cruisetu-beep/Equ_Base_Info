@@ -168,8 +168,10 @@ onUnmounted(() => {
 <style scoped>
 .ocr-card { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
 .ocr-stage {
-  background: #0f1d3d; border: 1px solid #1a2950; border-radius: 10px;
+  background: linear-gradient(135deg, #0a1628 0%, #0d1b35 60%, #0a1628 100%);
+  border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
   aspect-ratio: 16/9; position: relative; overflow: hidden;
+  box-shadow: inset 0 0 60px rgba(77,201,255,0.05);
 }
 .ocr-stage::before {
   content: ""; position: absolute; inset: 0;
@@ -259,10 +261,12 @@ onUnmounted(() => {
 .ocr-mini-btn:hover { background: rgba(77,201,255,0.2); }
 
 .ocr-log {
-  background: #0f1d3d; border: 1px solid #1a2950; border-radius: 10px;
+  background: linear-gradient(135deg, #0a1628 0%, #0d1b35 60%, #0a1628 100%);
+  border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
   padding: 14px; font-family: "JetBrains Mono", monospace;
   font-size: 10.5px; color: #c5d3ed; line-height: 1.7;
   display: flex; flex-direction: column; min-height: 280px;
+  box-shadow: inset 0 0 60px rgba(77,201,255,0.05);
 }
 .ocr-log-head { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 10px; }
 .ocr-log-head .h { color: #eaf2ff; font-size: 12px; font-family: "Noto Sans SC", sans-serif; }

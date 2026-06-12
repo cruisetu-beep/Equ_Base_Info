@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5174,
     // 后端就绪后在此配置代理
     // proxy: {
     //   '/api': { target: 'http://localhost:8080', changeOrigin: true }

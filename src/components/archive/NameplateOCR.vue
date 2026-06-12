@@ -168,18 +168,25 @@ onUnmounted(() => {
 <style scoped>
 .ocr-card { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
 .ocr-stage {
-  background: linear-gradient(135deg, #0a1628 0%, #0d1b35 60%, #0a1628 100%);
+  background: #243650;
   border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
   aspect-ratio: 16/9; position: relative; overflow: hidden;
-  box-shadow: inset 0 0 60px rgba(77,201,255,0.05);
 }
 .ocr-stage::before {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at center, rgba(47,127,255,0.10), transparent 60%);
-  pointer-events: none;
+  background-image: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(77,201,255,0.06), transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.ocr-stage::after {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(77,201,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77,201,255,0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
 }
 .ocr-empty {
-  position: absolute; inset: 12px;
+  position: absolute; inset: 12px; z-index: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; color: #8da3c8; cursor: pointer;
   border: 2px dashed rgba(77,201,255,0.25); border-radius: 10px;

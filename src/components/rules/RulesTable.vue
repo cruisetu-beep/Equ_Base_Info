@@ -33,15 +33,8 @@ function closeFilter() {
 
 <template>
   <div class="rules-table-wrap" @click="closeFilter">
-    <!-- 空状态 -->
-    <div v-if="pageRules.length === 0" class="empty-state-table">
-      <div class="ic"><AppIcon name="search" :size="28" stroke="var(--text-3)" /></div>
-      <div>未找到匹配的规则</div>
-      <div style="font-size:11px;margin-top:6px">调整筛选条件或清空搜索关键词</div>
-    </div>
-
-    <!-- 数据表 -->
-    <table v-else class="r-table">
+    <!-- 数据表（始终渲染表头，确保列筛选弹层可用） -->
+    <table class="r-table">
       <thead>
         <tr>
           <th>
@@ -87,6 +80,13 @@ function closeFilter() {
         </tr>
       </thead>
       <tbody>
+        <tr v-if="pageRules.length === 0">
+          <td colspan="8" class="empty-state-table">
+            <div class="ic"><AppIcon name="search" :size="28" stroke="var(--text-3)" /></div>
+            <div>未找到匹配的规则</div>
+            <div style="font-size:11px;margin-top:6px">调整筛选条件或清空搜索关键词</div>
+          </td>
+        </tr>
         <tr
           v-for="r in pageRules" :key="r.ruleId"
           :class="selId === r.ruleId && 'sel'"

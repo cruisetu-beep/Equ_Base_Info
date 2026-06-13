@@ -37,22 +37,20 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
   <div class="rules-filterbar">
     <!-- 第一行：统计 + 状态 -->
     <div class="fb-row">
-      <div class="stats-group">
-        <div class="stat-pill">
-          <AppIcon name="database" :size="12" stroke="#4dc9ff" />
-          总规则数 <strong>{{ total }}</strong>
-        </div>
-        <div class="stat-pill ok">已启用 <strong>{{ enabled }}</strong></div>
-        <div class="stat-pill dis">已禁用 <strong>{{ disabled }}</strong></div>
-      </div>
-
-      <div class="vsep" />
-
       <span class="g-label">状态</span>
       <div class="status-segs">
         <span :class="['status-seg', filterStatus === 'all'      && 'active']"     @click="$emit('update:filterStatus', 'all')">全部</span>
         <span :class="['status-seg', filterStatus === 'enabled'  && 'active ok']"  @click="$emit('update:filterStatus', 'enabled')">启用</span>
         <span :class="['status-seg', filterStatus === 'disabled' && 'active dis']" @click="$emit('update:filterStatus', 'disabled')">禁用</span>
+      </div>
+
+      <div class="stats-text">
+        <AppIcon name="database" :size="12" stroke="var(--text-3)" />
+        共 <strong>{{ total }}</strong> 条规则
+        <span class="sep">·</span>
+        已启用 <strong class="ok">{{ enabled }}</strong>
+        <span class="sep">·</span>
+        已禁用 <strong class="dis">{{ disabled }}</strong>
       </div>
     </div>
 
@@ -113,19 +111,15 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 .fb-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .fb-row:not(:last-child) { padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
 
-.vsep { width: 1px; align-self: stretch; background: var(--line); flex-shrink: 0; }
-
-/* 统计 */
-.stats-group { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-.stat-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 999px; font-size: 11.5px;
-  background: linear-gradient(135deg, #0f1d3d 0%, #1a2a55 100%); color: #c5d3ed;
+/* 统计信息：纯文本展示，与可点击筛选项区分 */
+.stats-text {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text-3);
 }
-.stat-pill strong { font-family: "Orbitron", sans-serif; font-size: 13px; color: white; margin-left: 2px; }
-.stat-pill.ok, .stat-pill.dis { background: #f5f9ff; color: var(--text-2); border: 1px solid var(--line); }
-.stat-pill.ok strong { color: var(--ok); font-size: 13px; }
-.stat-pill.dis strong { color: var(--eol-red); font-size: 13px; }
+.stats-text strong { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--text-1); font-weight: 600; }
+.stats-text strong.ok  { color: var(--ok); }
+.stats-text strong.dis { color: var(--eol-red); }
+.stats-text .sep { color: var(--line-strong); }
 
 .g-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; flex-shrink: 0; }
 

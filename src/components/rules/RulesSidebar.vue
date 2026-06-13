@@ -35,7 +35,7 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 
 <template>
   <div class="rules-filterbar">
-    <!-- 第一行：统计 + 状态 -->
+    <!-- 第一行：状态 + 批次 -->
     <div class="fb-row">
       <span class="g-label">状态</span>
       <div class="status-segs">
@@ -44,18 +44,8 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
         <span :class="['status-seg', filterStatus === 'disabled' && 'active dis']" @click="$emit('update:filterStatus', 'disabled')">禁用</span>
       </div>
 
-      <div class="stats-text">
-        <AppIcon name="database" :size="12" stroke="var(--text-3)" />
-        共 <strong>{{ total }}</strong> 条规则
-        <span class="sep">·</span>
-        已启用 <strong class="ok">{{ enabled }}</strong>
-        <span class="sep">·</span>
-        已禁用 <strong class="dis">{{ disabled }}</strong>
-      </div>
-    </div>
+      <div class="vsep" />
 
-    <!-- 第二行：批次 -->
-    <div class="fb-row">
       <span class="g-label">批次</span>
       <div class="chip-row">
         <span
@@ -73,6 +63,15 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
         >
           <span class="dot" /> {{ b }} ({{ c.year }}) <span class="cnt">{{ batchCnt[b] || 0 }}</span>
         </span>
+      </div>
+
+      <div class="stats-text">
+        <AppIcon name="database" :size="12" stroke="var(--text-3)" />
+        共 <strong>{{ total }}</strong> 条规则
+        <span class="sep">·</span>
+        已启用 <strong class="ok">{{ enabled }}</strong>
+        <span class="sep">·</span>
+        已禁用 <strong class="dis">{{ disabled }}</strong>
       </div>
     </div>
 
@@ -111,6 +110,8 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 .fb-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .fb-row:not(:last-child) { padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
 
+.vsep { width: 1px; align-self: stretch; background: var(--line); flex-shrink: 0; }
+
 /* 统计信息：纯文本展示，与可点击筛选项区分 */
 .stats-text {
   margin-left: auto; display: flex; align-items: center; gap: 6px;
@@ -131,7 +132,7 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 .status-seg.active.dis { background: var(--text-2); border-color: var(--text-2); }
 
 /* 通用 chip */
-.chip-row { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .f-chip {
   padding: 5px 10px 5px 8px; border-radius: 6px; background: #f5f9ff; border: 1px solid var(--line);
   font-size: 11.5px; color: var(--text-1); cursor: pointer;

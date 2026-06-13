@@ -1,6 +1,6 @@
 <script setup>
 // ── components/rules/RulesSidebar.vue ─────────────────────────────
-// 横向筛选条：统计 + 状态 + 批次 + 设备类型，全部一行展示（可换行）
+// 横向筛选条：统计 + 状态一行，批次一行，类型一行
 import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPES } from '@/data/devices'
@@ -35,20 +35,19 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 
 <template>
   <div class="rules-filterbar">
-    <!-- 统计 -->
-    <div class="stats-group">
-      <div class="stat-pill">
-        <AppIcon name="database" :size="12" stroke="#4dc9ff" />
-        总规则数 <strong>{{ total }}</strong>
+    <!-- 第一行：统计 + 状态 -->
+    <div class="fb-row">
+      <div class="stats-group">
+        <div class="stat-pill">
+          <AppIcon name="database" :size="12" stroke="#4dc9ff" />
+          总规则数 <strong>{{ total }}</strong>
+        </div>
+        <div class="stat-pill ok">已启用 <strong>{{ enabled }}</strong></div>
+        <div class="stat-pill dis">已禁用 <strong>{{ disabled }}</strong></div>
       </div>
-      <div class="stat-pill ok">已启用 <strong>{{ enabled }}</strong></div>
-      <div class="stat-pill dis">已禁用 <strong>{{ disabled }}</strong></div>
-    </div>
 
-    <div class="vsep" />
+      <div class="vsep" />
 
-    <!-- 状态筛选 -->
-    <div class="filter-group">
       <span class="g-label">状态</span>
       <div class="status-segs">
         <span :class="['status-seg', filterStatus === 'all'      && 'active']"     @click="$emit('update:filterStatus', 'all')">全部</span>
@@ -57,10 +56,8 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
       </div>
     </div>
 
-    <div class="vsep" />
-
-    <!-- 批次筛选 -->
-    <div class="filter-group">
+    <!-- 第二行：批次 -->
+    <div class="fb-row">
       <span class="g-label">批次</span>
       <div class="chip-row">
         <span
@@ -81,10 +78,8 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
       </div>
     </div>
 
-    <div class="vsep" />
-
-    <!-- 设备类型筛选 -->
-    <div class="filter-group" style="flex:1;min-width:0">
+    <!-- 第三行：设备类型 -->
+    <div class="fb-row">
       <span class="g-label">类型</span>
       <div class="chip-row">
         <span
@@ -110,31 +105,29 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 
 <style scoped>
 .rules-filterbar {
-  display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap;
+  display: flex; flex-direction: column; gap: 12px;
   padding: 14px 18px; background: white; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 1px 2px rgba(60,110,200,0.04);
 }
 
-.vsep { width: 1px; align-self: stretch; background: var(--line); flex-shrink: 0; min-height: 28px; }
+.fb-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fb-row:not(:last-child) { padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+
+.vsep { width: 1px; align-self: stretch; background: var(--line); flex-shrink: 0; }
 
 /* 统计 */
-.stats-group { display: flex; gap: 8px; align-items: center; flex-shrink: 0; padding-top: 4px; }
+.stats-group { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .stat-pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px; border-radius: 999px; font-size: 11.5px;
   background: linear-gradient(135deg, #0f1d3d 0%, #1a2a55 100%); color: #c5d3ed;
 }
 .stat-pill strong { font-family: "Orbitron", sans-serif; font-size: 13px; color: white; margin-left: 2px; }
-.stat-pill.ok strong  { color: #2bd9a8; }
-.stat-pill.dis strong { color: #ff8da0; }
 .stat-pill.ok, .stat-pill.dis { background: #f5f9ff; color: var(--text-2); border: 1px solid var(--line); }
-.stat-pill.ok strong, .stat-pill.dis strong { color: inherit; font-size: 13px; }
-.stat-pill.ok strong { color: var(--ok); }
-.stat-pill.dis strong { color: var(--eol-red); }
+.stat-pill.ok strong { color: var(--ok); font-size: 13px; }
+.stat-pill.dis strong { color: var(--eol-red); font-size: 13px; }
 
-/* 筛选分组 */
-.filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.g-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; flex-shrink: 0; padding-top: 1px; }
+.g-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; flex-shrink: 0; }
 
 /* 状态分段 */
 .status-segs { display: flex; gap: 4px; }
@@ -144,7 +137,7 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 .status-seg.active.dis { background: var(--text-2); border-color: var(--text-2); }
 
 /* 通用 chip */
-.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
 .f-chip {
   padding: 5px 10px 5px 8px; border-radius: 6px; background: #f5f9ff; border: 1px solid var(--line);
   font-size: 11.5px; color: var(--text-1); cursor: pointer;

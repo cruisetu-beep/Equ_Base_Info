@@ -1,5 +1,6 @@
 <script setup>
 // ── components/rules/RulesTable.vue ───────────────────────────────
+import { ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP } from '@/data/devices'
 import { BATCH_COLORS, ACTION_COLORS } from '@/data/rules'
@@ -9,19 +10,29 @@ defineProps({
   totalCount:      { type: Number,  required: true },
   page:            { type: Number,  required: true },
   totalPages:      { type: Number,  required: true },
-  q:               { type: String,  required: true },
+  qRuleId:         { type: String,  default: '' },
+  qProduct:        { type: String,  default: '' },
   selId:           { type: String,  default: null },
   deleteConfirmId: { type: String,  default: null },
 })
 
 defineEmits([
-  'update:q', 'update:page', 'update:selId',
+  'update:qRuleId', 'update:qProduct', 'update:page', 'update:selId',
   'toggle-enabled', 'update:deleteConfirmId', 'delete-rule',
 ])
+
+// 列筛选弹层：'ruleId' | 'product' | null
+const openFilter = ref(null)
+function toggleFilter(col) {
+  openFilter.value = openFilter.value === col ? null : col
+}
+function closeFilter() {
+  openFilter.value = null
+}
 </script>
 
 <template>
-  <div class="rules-table-wrap">
+  <div class="rules-table-wrap" @click="closeFilter">
     <!-- 空状态 -->
     <div v-if="pageRules.length === 0" class="empty-state-table">
       <div class="ic"><AppIcon name="search" :size="28" stroke="var(--text-3)" /></div>
@@ -33,10 +44,42 @@ defineEmits([
     <table v-else class="r-table">
       <thead>
         <tr>
-          <th>规则 ID</th>
+          <th>
+            <span class="th-with-filter">
+              规则 ID
+              <span
+                :class="['th-filter-ic', qRuleId && 'active']"
+                @click.stop="toggleFilter('ruleId')"
+              ><AppIcon name="filter" :size="11" /></span>
+            </span>
+            <div v-if="openFilter === 'ruleId'" class="th-filter-pop" @click.stop>
+              <input
+                class="input mono" placeholder="输入规则 ID 关键字" autofocus
+                :value="qRuleId"
+                @input="$emit('update:qRuleId', $event.target.value)"
+              />
+              <button v-if="qRuleId" class="clear" @click="$emit('update:qRuleId', '')">清空</button>
+            </div>
+          </th>
           <th>批次</th>
           <th>类型</th>
-          <th>产品 / 型号系列</th>
+          <th>
+            <span class="th-with-filter">
+              产品 / 型号系列
+              <span
+                :class="['th-filter-ic', qProduct && 'active']"
+                @click.stop="toggleFilter('product')"
+              ><AppIcon name="filter" :size="11" /></span>
+            </span>
+            <div v-if="openFilter === 'product'" class="th-filter-pop" @click.stop>
+              <input
+                class="input" placeholder="输入产品名 / 型号关键字" autofocus
+                :value="qProduct"
+                @input="$emit('update:qProduct', $event.target.value)"
+              />
+              <button v-if="qProduct" class="clear" @click="$emit('update:qProduct', '')">清空</button>
+            </div>
+          </th>
           <th>淘汰类型</th>
           <th>截止日期</th>
           <th>启用</th>
@@ -151,7 +194,22 @@ defineEmits([
 
 
 .r-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.r-table th { padding: 10px 12px; text-align: left; font-weight: 500; background: #f5f9ff; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.r-table th { padding: 10px 12px; text-align: left; font-weight: 500; background: #f5f9ff; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); white-space: nowrap; position: relative; }
+
+.th-with-filter { display: inline-flex; align-items: center; gap: 5px; }
+.th-filter-ic { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; color: var(--text-3); cursor: pointer; text-transform: none; }
+.th-filter-ic:hover { background: white; color: var(--brand); }
+.th-filter-ic.active { color: var(--brand); background: rgba(47,127,255,0.10); }
+.th-filter-pop {
+  position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 30;
+  background: white; border: 1px solid var(--line-strong); border-radius: 8px;
+  padding: 10px; box-shadow: 0 6px 20px rgba(60,110,200,0.15);
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 220px; text-transform: none; letter-spacing: normal; font-weight: 400;
+}
+.th-filter-pop .input { font-size: 12px; padding: 7px 10px; }
+.th-filter-pop .clear { align-self: flex-end; font-size: 11px; color: var(--text-2); background: none; border: none; cursor: pointer; padding: 2px 4px; }
+.th-filter-pop .clear:hover { color: var(--danger); }
 .r-table td { padding: 12px; border-bottom: 1px solid var(--line); color: var(--text-1); vertical-align: middle; }
 .r-table tr { cursor: pointer; transition: background 0.12s; }
 .r-table tr:hover td { background: #f8faff; }

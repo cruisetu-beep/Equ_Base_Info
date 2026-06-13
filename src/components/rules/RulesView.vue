@@ -14,7 +14,8 @@ const rules         = ref(RULES_LIB_INIT.map(r => ({ ...r })))
 const filterBatch   = ref('all')
 const filterType    = ref('all')
 const filterStatus  = ref('all')
-const q             = ref('')
+const qRuleId       = ref('')
+const qProduct      = ref('')
 const page          = ref(1)
 const selId         = ref(null)
 const editing       = ref(false)
@@ -22,7 +23,7 @@ const creating      = ref(false)
 const deleteConfirm = ref(null)
 
 // 筛选变化时重置分页
-watch([filterBatch, filterType, filterStatus, q], () => { page.value = 1 })
+watch([filterBatch, filterType, filterStatus, qRuleId, qProduct], () => { page.value = 1 })
 
 // ── 筛选 + 分页 ────────────────────────────────────────────────
 const filtered = computed(() =>
@@ -31,10 +32,12 @@ const filtered = computed(() =>
     if (filterType.value  !== 'all' && r.typeK  !== filterType.value)  return false
     if (filterStatus.value === 'enabled'  && r.enabled === false)       return false
     if (filterStatus.value === 'disabled' && r.enabled !== false)       return false
-    if (q.value) {
-      const s = q.value.toLowerCase()
-      if (!(r.ruleId.toLowerCase().includes(s) ||
-            r.product.toLowerCase().includes(s) ||
+    if (qRuleId.value) {
+      if (!r.ruleId.toLowerCase().includes(qRuleId.value.toLowerCase())) return false
+    }
+    if (qProduct.value) {
+      const s = qProduct.value.toLowerCase()
+      if (!(r.product.toLowerCase().includes(s) ||
             (r.modelPattern || []).some(m => m.toLowerCase().includes(s)) ||
             (r.subType || '').toLowerCase().includes(s))) return false
     }
@@ -122,10 +125,12 @@ function startCreate() {
         :total-count="filtered.length"
         :page="page"
         :total-pages="totalPages"
-        :q="q"
+        :q-rule-id="qRuleId"
+        :q-product="qProduct"
         :sel-id="selId"
         :delete-confirm-id="deleteConfirm"
-        @update:q="q = $event"
+        @update:q-rule-id="qRuleId = $event"
+        @update:q-product="qProduct = $event"
         @update:page="page = $event"
         @update:sel-id="selectRule($event)"
         @toggle-enabled="toggleEnabled($event)"

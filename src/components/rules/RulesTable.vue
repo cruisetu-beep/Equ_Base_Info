@@ -22,21 +22,6 @@ defineEmits([
 
 <template>
   <div class="rules-table-wrap">
-    <!-- 工具栏 -->
-    <div class="rules-toolbar">
-      <div class="search">
-        <AppIcon name="search" :size="14" />
-        <input
-          placeholder="搜索规则 ID / 产品名 / 型号系列"
-          :value="q"
-          @input="$emit('update:q', $event.target.value)"
-        />
-      </div>
-      <div class="info">
-        <AppIcon name="filter" :size="11" /> 共 <strong>{{ totalCount }}</strong> 条规则匹配
-      </div>
-    </div>
-
     <!-- 空状态 -->
     <div v-if="pageRules.length === 0" class="empty-state-table">
       <div class="ic"><AppIcon name="search" :size="28" stroke="var(--text-3)" /></div>
@@ -164,11 +149,6 @@ defineEmits([
 <style scoped>
 .rules-table-wrap { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(60,110,200,0.04); }
 
-.rules-toolbar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #f8faff, white); }
-.rules-toolbar .search { flex: 1; max-width: 360px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #f5f9ff; border: 1px solid var(--line); border-radius: 8px; color: var(--text-2); }
-.rules-toolbar .search input { flex: 1; padding: 8px 0; background: transparent; border: 0; color: var(--text-0); font-size: 12.5px; outline: none; font-family: inherit; }
-.rules-toolbar .info { font-size: 12px; color: var(--text-2); margin-left: auto; }
-.rules-toolbar .info strong { color: var(--text-0); }
 
 .r-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .r-table th { padding: 10px 12px; text-align: left; font-weight: 500; background: #f5f9ff; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); white-space: nowrap; }

@@ -104,18 +104,19 @@ function startCreate() {
       </div>
     </div>
 
-    <!-- 三栏布局 -->
-    <div class="rules-grid">
-      <RulesSidebar
-        :rules="rules"
-        :filter-batch="filterBatch"
-        :filter-type="filterType"
-        :filter-status="filterStatus"
-        @update:filter-batch="filterBatch = $event"
-        @update:filter-type="filterType = $event"
-        @update:filter-status="filterStatus = $event"
-      />
+    <!-- 横向筛选条 -->
+    <RulesSidebar
+      :rules="rules"
+      :filter-batch="filterBatch"
+      :filter-type="filterType"
+      :filter-status="filterStatus"
+      @update:filter-batch="filterBatch = $event"
+      @update:filter-type="filterType = $event"
+      @update:filter-status="filterStatus = $event"
+    />
 
+    <!-- 表格 + 详情两栏布局 -->
+    <div class="rules-grid">
       <RulesTable
         :page-rules="pageRules"
         :total-count="filtered.length"
@@ -149,5 +150,5 @@ function startCreate() {
 
 <style scoped>
 .rules-view { display: flex; flex-direction: column; gap: 16px; }
-.rules-grid { display: grid; grid-template-columns: 240px 1fr 380px; gap: 16px; align-items: flex-start; }
+.rules-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: flex-start; }
 </style>

@@ -178,7 +178,7 @@ defineEmits([
 .r-table tr.sel td { background: #eaf2ff; }
 .r-table tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
 .r-table .rid { font-family: "JetBrains Mono", monospace; font-weight: 600; color: var(--text-0); font-size: 12px; }
-.r-table .product { color: var(--text-0); max-width: 280px; line-height: 1.4; }
+.r-table .product { color: var(--text-0); max-width: 420px; line-height: 1.4; }
 .r-table .product .sub { font-size: 10.5px; color: var(--text-2); margin-top: 2px; }
 .r-table .deadline { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-2); }
 

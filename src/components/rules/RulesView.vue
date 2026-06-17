@@ -154,6 +154,6 @@ function startCreate() {
 </template>
 
 <style scoped>
-.rules-view { display: flex; flex-direction: column; gap: 16px; }
-.rules-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: flex-start; }
+.rules-view { display: flex; flex-direction: column; gap: 16px; min-height: calc(100vh - 180px); }
+.rules-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: stretch; flex: 1; min-height: 0; }
 </style>

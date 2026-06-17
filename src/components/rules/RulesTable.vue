@@ -190,7 +190,7 @@ function closeFilter() {
 </template>
 
 <style scoped>
-.rules-table-wrap { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(60,110,200,0.04); }
+.rules-table-wrap { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(60,110,200,0.04); display: flex; flex-direction: column; height: 100%; }
 
 
 .r-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -210,7 +210,7 @@ function closeFilter() {
 .th-filter-pop .input { font-size: 12px; padding: 7px 10px; }
 .th-filter-pop .clear { align-self: flex-end; font-size: 11px; color: var(--text-2); background: none; border: none; cursor: pointer; padding: 2px 4px; }
 .th-filter-pop .clear:hover { color: var(--danger); }
-.r-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--text-1); vertical-align: middle; }
+.r-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); color: var(--text-1); vertical-align: middle; }
 .r-table tr { cursor: pointer; transition: background 0.12s; }
 .r-table tr:hover td { background: #f8faff; }
 .r-table tr.sel td { background: #eaf2ff; }
@@ -239,7 +239,7 @@ function closeFilter() {
 .delete-pop .acts { display: flex; gap: 6px; justify-content: flex-end; }
 .delete-pop .acts .btn { padding: 4px 10px; font-size: 11px; }
 
-.pagination { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; justify-content: flex-end; background: #fbfcfe; }
+.pagination { margin-top: auto; padding: 12px 18px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; justify-content: flex-end; background: #fbfcfe; }
 .pagination .info { margin-right: auto; font-size: 12px; color: var(--text-2); }
 .pg-btn { width: 30px; height: 30px; border-radius: 6px; background: white; border: 1px solid var(--line); display: grid; place-items: center; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-1); cursor: pointer; transition: all 0.12s; }
 .pg-btn:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }

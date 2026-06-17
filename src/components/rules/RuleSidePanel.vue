@@ -302,13 +302,13 @@ const showDetail = computed(() => !props.creating && !props.editing && props.sel
 
 <style scoped>
 /* ── 空态 ── */
-.rule-side-empty { padding: 24px; text-align: center; background: white; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--text-2); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rule-side-empty { padding: 24px; text-align: center; background: white; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--text-2); height: 100%; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .rule-side-empty .ic { color: var(--text-3); margin-bottom: 12px; display:flex; justify-content:center; }
 .rule-side-empty .h { font-size: 14px; color: var(--text-1); margin-bottom: 6px; }
 .rule-side-empty .s { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 
 /* ── 只读详情 ── */
-.rule-detail-ro { background: white; border: 1px solid var(--line); border-radius: 12px; height: 100%; max-height: 100%; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(60,110,200,0.04); overflow: hidden; }
+.rule-detail-ro { background: white; border: 1px solid var(--line); border-radius: 12px; height: 100%; min-height: 0; min-width: 0; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(60,110,200,0.04); overflow: hidden; }
 .rd-head { padding: 16px 20px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg, color-mix(in srgb, var(--cl) 8%, white), white); }
 .rd-head .ridrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .rd-head .rid { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 16px; color: var(--text-0); letter-spacing: 0.5px; }
@@ -339,7 +339,7 @@ const showDetail = computed(() => !props.creating && !props.editing && props.sel
 .rd-foot .btn { padding: 7px 14px; font-size: 12px; flex: 1; justify-content: center; }
 
 /* ── 编辑/新建表单 ── */
-.rule-edit-form { background: linear-gradient(180deg, #eaf2ff, white 18%); border: 2px solid var(--brand); border-radius: 12px; height: 100%; max-height: 100%; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(47,127,255,0.18); overflow: hidden; animation: edit-mode-in 0.3s ease; }
+.rule-edit-form { background: linear-gradient(180deg, #eaf2ff, white 18%); border: 2px solid var(--brand); border-radius: 12px; height: 100%; min-height: 0; min-width: 0; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(47,127,255,0.18); overflow: hidden; animation: edit-mode-in 0.3s ease; }
 @keyframes edit-mode-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .ef-head { padding: 14px 18px; background: linear-gradient(90deg, var(--brand), var(--brand-2)); color: white; display: flex; align-items: center; gap: 10px; }
 .ef-head .ic { color: rgba(255,255,255,0.9); }

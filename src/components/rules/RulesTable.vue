@@ -190,7 +190,7 @@ function closeFilter() {
 </template>
 
 <style scoped>
-.rules-table-wrap { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(60,110,200,0.04); display: flex; flex-direction: column; height: 100%; }
+.rules-table-wrap { background: white; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(60,110,200,0.04); display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
 
 .r-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }

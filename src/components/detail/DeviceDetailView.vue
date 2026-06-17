@@ -5,6 +5,8 @@
 
 import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import RuntimeParamsCard from './RuntimeParamsCard.vue'
+import KnowledgeGraphSummary from './KnowledgeGraphSummary.vue'
 import { SAMPLE_DEVICES, DEV_TYPE_MAP, STATUS_MAP, getDeviceDetailExt } from '@/data/devices'
 
 const props = defineProps({
@@ -112,20 +114,25 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
           </div>
         </div>
 
-        <!-- Phase 8 占位：运行参数卡 -->
+        <!-- 运行参数卡 -->
+        <RuntimeParamsCard :params="device.params" />
+
+        <!-- Phase 9 占位：淘汰判定详情卡 -->
         <div class="placeholder-page" style="padding:40px 24px">
-          <div class="icn">📊</div>
-          <div class="h">运行参数</div>
-          <div class="s">Phase 8 将实现运行参数卡 + 知识图谱关联摘要</div>
+          <div class="icn">⚖️</div>
+          <div class="h">淘汰判定详情</div>
+          <div class="s">Phase 9 将实现命中规则 / 寿命对比 / 能效差距分析</div>
         </div>
       </div>
 
       <!-- 右栏 -->
       <div class="dd-side">
+        <KnowledgeGraphSummary :device="device" />
+
         <div class="placeholder-page" style="padding:40px 24px">
-          <div class="icn">🔗</div>
-          <div class="h">知识图谱 / 文档 / 时间线</div>
-          <div class="s">Phase 8~10 陆续实现</div>
+          <div class="icn">📁</div>
+          <div class="h">关联文档 / 操作历史</div>
+          <div class="s">Phase 10 陆续实现</div>
         </div>
       </div>
     </div>

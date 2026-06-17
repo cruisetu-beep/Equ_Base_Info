@@ -172,3 +172,57 @@ export const OCR_PRESET = {
     { label: "年份", value: "2008",          x: 14, y: 68, w: 24, h: 11, key: "year" },
   ],
 }
+
+// ── 设备详情扩展字段（对应数据库设计 Attr37~48 新增属性）────────────
+// 真实后端就绪后，这部分将由 T_ST_EquipmentAttributeValue 动态查询返回；
+// 现阶段用确定性派生算法为每台 SAMPLE_DEVICES 生成一致的演示数据。
+
+const MANUFACTURERS = {
+  motor: "上海电机厂", fan: "上海鼓风机厂", pump: "南方泵业",
+  transformer: "特变电工", boiler: "哈尔滨锅炉厂", compressor: "复盛实业",
+  chiller: "约克空调", welder: "上海电焊机厂",
+}
+
+const SYSTEMS = {
+  motor: "动力系统", fan: "通风系统", pump: "给排水系统",
+  transformer: "配电系统", boiler: "热力系统", compressor: "制冷系统",
+  chiller: "暖通空调系统", welder: "动力系统",
+}
+
+const DESIGN_LIFE_YEARS = {
+  motor: 15, fan: 12, pump: 12, transformer: 25,
+  boiler: 15, compressor: 15, chiller: 20, welder: 10,
+}
+
+/**
+ * 根据设备基础信息派生出详情页所需的扩展属性。
+ * @param {Object} device - SAMPLE_DEVICES 中的一条记录
+ * @returns {Object} 扩展字段集合
+ */
+export function getDeviceDetailExt(device) {
+  const designLife = DESIGN_LIFE_YEARS[device.typeK] || 15
+  const serviceYears = Math.max(0, new Date().getFullYear() - device.year)
+  const remainingLife = Math.max(0, designLife - serviceYears)
+
+  // 用 code 的 hash 派生确定性的"随机"采购金额/日期，保证同一设备每次展示一致
+  const seed = device.code.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
+  const purchaseAmount = 3 + (seed % 40) * 0.8 // 万元
+
+  return {
+    manufacturer: MANUFACTURERS[device.typeK] || "未知厂商",
+    serialNo: `${device.code}-SN${String(seed % 9000 + 1000)}`,
+    manufactureDate: `${device.year}-${String((seed % 12) + 1).padStart(2, "0")}-15`,
+    designLife,
+    serviceYears,
+    remainingLife,
+    purchaseDate: `${device.year}-${String((seed % 12) + 1).padStart(2, "0")}-20`,
+    purchaseAmount: purchaseAmount.toFixed(1),
+    energyEfficiencyLevel: device.status === "normal" ? "一级" : device.status === "low_eff" ? "三级" : "未达标",
+    meteringPointId: `MP-${device.code.slice(-8)}`,
+    system: SYSTEMS[device.typeK] || "其他系统",
+    location: device.building ? `${device.building} · 设备机房` : "—",
+    priorityScore: device.status === "phaseout" ? 80 + (seed % 20) : device.status === "low_eff" ? 50 + (seed % 20) : 10 + (seed % 20),
+    annualExcessEnergy: device.status === "phaseout" || device.status === "low_eff" ? (5 + (seed % 30)).toFixed(1) : "0.0",
+    energyEfficiencyGap: device.status === "phaseout" || device.status === "low_eff" ? (8 + (seed % 25)).toFixed(1) : "0.0",
+  }
+}

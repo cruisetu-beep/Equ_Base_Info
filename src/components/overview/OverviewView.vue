@@ -7,7 +7,7 @@ import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { SAMPLE_DEVICES, DEV_TYPE_MAP } from '@/data/devices'
 
-defineEmits(['create', 'judge'])
+defineEmits(['create', 'judge', 'view-detail'])
 
 // ── 筛选状态 ──────────────────────────────────────────────────────
 const filter = ref('all')   // 设备一级类型
@@ -182,6 +182,7 @@ const STATUS_ICON = {
           v-for="d in filtered"
           :key="d.id"
           :class="['dev-tile', d.status]"
+          @click="$emit('view-detail', d.id)"
         >
           <!-- 卡头：图标 + 名称 + 状态标签 -->
           <div class="dev-head">

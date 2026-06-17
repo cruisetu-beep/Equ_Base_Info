@@ -210,7 +210,7 @@ function closeFilter() {
 .th-filter-pop .input { font-size: 12px; padding: 7px 10px; }
 .th-filter-pop .clear { align-self: flex-end; font-size: 11px; color: var(--text-2); background: none; border: none; cursor: pointer; padding: 2px 4px; }
 .th-filter-pop .clear:hover { color: var(--danger); }
-.r-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--text-1); vertical-align: middle; }
+.r-table td { padding: 13px 12px; border-bottom: 1px solid var(--line); color: var(--text-1); vertical-align: middle; }
 .r-table tr { cursor: pointer; transition: background 0.12s; }
 .r-table tr:hover td { background: #f8faff; }
 .r-table tr.sel td { background: #eaf2ff; }

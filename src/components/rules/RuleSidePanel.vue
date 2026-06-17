@@ -302,7 +302,7 @@ const showDetail = computed(() => !props.creating && !props.editing && props.sel
 
 <style scoped>
 /* ── 空态 ── */
-.rule-side-empty { padding: 36px 24px; text-align: center; background: white; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--text-2); position: sticky; top: 80px; }
+.rule-side-empty { padding: 48px 24px; text-align: center; background: white; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--text-2); position: sticky; top: 80px; }
 .rule-side-empty .ic { color: var(--text-3); margin-bottom: 12px; display:flex; justify-content:center; }
 .rule-side-empty .h { font-size: 14px; color: var(--text-1); margin-bottom: 6px; }
 .rule-side-empty .s { font-size: 12px; color: var(--text-3); line-height: 1.6; }

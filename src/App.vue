@@ -11,6 +11,8 @@ import DeviceDetailView from '@/components/detail/DeviceDetailView.vue'
 const tab = ref('overview')
 // 设备详情是 overview 之上的子页面，不属于顶部导航 tab
 const selectedDeviceId = ref(null)
+// 从设备详情跳转到规则库时，记录要自动选中的规则 ID
+const jumpToRuleId = ref(null)
 
 const SUBTITLE_MAP = {
   overview: ['首页', '低效淘汰设备库', '设备总览'],
@@ -28,10 +30,17 @@ const breadcrumb = computed(() => {
 function switchTab(newTab) {
   tab.value = newTab
   selectedDeviceId.value = null // 切换主导航时清空详情页状态
+  jumpToRuleId.value = null
 }
 
 function openDeviceDetail(id) {
   selectedDeviceId.value = id
+}
+
+function viewRuleInLibrary(ruleId) {
+  jumpToRuleId.value = ruleId
+  selectedDeviceId.value = null
+  tab.value = 'rules'
 }
 </script>
 
@@ -46,6 +55,7 @@ function openDeviceDetail(id) {
       @back="selectedDeviceId = null"
       @edit="selectedDeviceId = null /* TODO: 接入编辑流程 */"
       @rejudge="selectedDeviceId = null /* TODO: 接入判定流程 */"
+      @view-rule="viewRuleInLibrary"
     />
     <OverviewView
       v-else-if="tab === 'overview'"
@@ -62,6 +72,7 @@ function openDeviceDetail(id) {
     />
     <RulesView
       v-else-if="tab === 'rules'"
+      :initial-sel-id="jumpToRuleId"
     />
   </div>
 </template>

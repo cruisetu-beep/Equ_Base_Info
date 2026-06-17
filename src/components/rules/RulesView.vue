@@ -7,6 +7,11 @@ import RulesTable   from './RulesTable.vue'
 import RuleSidePanel from './RuleSidePanel.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
 
+const props = defineProps({
+  // 从设备详情页跳转时传入，自动选中并展开该规则详情
+  initialSelId: { type: String, default: null },
+})
+
 const PAGE_SIZE = 8
 
 // ── 动态测算表格区域可用高度（精确填满剩余视口，不再猜固定 px）────
@@ -37,7 +42,7 @@ const filterStatus  = ref('all')
 const qRuleId       = ref('')
 const qProduct      = ref('')
 const page          = ref(1)
-const selId         = ref(null)
+const selId         = ref(props.initialSelId || null)
 const editing       = ref(false)
 const creating      = ref(false)
 const deleteConfirm = ref(null)
@@ -67,6 +72,14 @@ const filtered = computed(() =>
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
 const pageRules  = computed(() => filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+
+// 深链接跳转：若带 initialSelId 进入，自动翻到该规则所在页
+onMounted(() => {
+  if (props.initialSelId) {
+    const idx = filtered.value.findIndex(r => r.ruleId === props.initialSelId)
+    if (idx !== -1) page.value = Math.floor(idx / PAGE_SIZE) + 1
+  }
+})
 const selRule    = computed(() => selId.value ? rules.value.find(r => r.ruleId === selId.value) : null)
 
 // ── 操作 handlers ───────────────────────────────────────────────

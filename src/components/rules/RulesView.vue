@@ -1,6 +1,6 @@
 <script setup>
 // ── components/rules/RulesView.vue ────────────────────────────────
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import AppIcon      from '@/components/common/AppIcon.vue'
 import RulesSidebar from './RulesSidebar.vue'
 import RulesTable   from './RulesTable.vue'
@@ -8,6 +8,26 @@ import RuleSidePanel from './RuleSidePanel.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
 
 const PAGE_SIZE = 8
+
+// ── 动态测算表格区域可用高度（精确填满剩余视口，不再猜固定 px）────
+const rootEl   = ref(null)
+const gridH    = ref(480) // 初始兜底值，measure 后立即覆盖
+
+function measure() {
+  if (!rootEl.value) return
+  const rect = rootEl.value.getBoundingClientRect()
+  const available = window.innerHeight - rect.top - 24 // 24px 底部呼吸距离
+  gridH.value = Math.max(320, available)
+}
+
+onMounted(async () => {
+  await nextTick()
+  measure()
+  window.addEventListener('resize', measure)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', measure)
+})
 
 // ── 状态 ────────────────────────────────────────────────────────
 const rules         = ref(RULES_LIB_INIT.map(r => ({ ...r })))
@@ -119,7 +139,7 @@ function startCreate() {
     />
 
     <!-- 表格 + 详情两栏布局 -->
-    <div class="rules-grid">
+    <div ref="rootEl" class="rules-grid" :style="{ height: gridH + 'px' }">
       <RulesTable
         :page-rules="pageRules"
         :total-count="filtered.length"
@@ -154,6 +174,6 @@ function startCreate() {
 </template>
 
 <style scoped>
-.rules-view { display: flex; flex-direction: column; gap: 16px; height: calc(100vh - 180px); }
-.rules-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; flex: 1; min-height: 0; overflow: hidden; }
+.rules-view { display: flex; flex-direction: column; gap: 16px; }
+.rules-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; min-height: 0; overflow: hidden; }
 </style>

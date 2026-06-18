@@ -9,6 +9,7 @@ import { SAMPLE_DEVICES, DEV_TYPE_MAP } from '@/data/devices'
 const props = defineProps({
   device: { type: Object, required: true },
 })
+defineEmits(['view-graph'])
 
 const devType = computed(() => DEV_TYPE_MAP[props.device.typeK] || DEV_TYPE_MAP.other)
 
@@ -60,7 +61,7 @@ const sameBuildingCount = computed(() =>
       </div>
     </div>
 
-    <button class="btn ghost kg-view-btn">
+    <button class="btn ghost kg-view-btn" @click="$emit('view-graph')">
       <AppIcon name="search" :size="12" /> 查看完整图谱
     </button>
   </div>

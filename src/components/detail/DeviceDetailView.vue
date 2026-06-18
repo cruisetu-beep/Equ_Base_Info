@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuntimeParamsCard from './RuntimeParamsCard.vue'
 import KnowledgeGraphSummary from './KnowledgeGraphSummary.vue'
+import GraphCanvas from './GraphCanvas.vue'
 import EliminationBasisCard from './EliminationBasisCard.vue'
 import DeviceDocList from './DeviceDocList.vue'
 import DeviceTimeline from './DeviceTimeline.vue'
@@ -150,6 +151,13 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
       <!-- 右栏 -->
       <div class="dd-side">
         <KnowledgeGraphSummary :device="device" />
+
+        <!-- TEMP TEST：Step 2 将替换为弹框触发，此处仅供肉眼验证渲染效果 -->
+        <div class="card dd-card" style="padding:0;overflow:hidden">
+          <div style="height:480px">
+            <GraphCanvas :device="device" />
+          </div>
+        </div>
         <DeviceDocList :device="device" />
         <DeviceTimeline :device="device" />
       </div>

@@ -82,11 +82,14 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
             <h3>基础信息</h3>
           </div>
 
-          <div class="dd-section">
-            <div class="dd-section-label">设备属性</div>
+          <div class="dd-section dd-section--tagged" style="--tag-cl:#4dc9ff">
+            <div class="dd-section-label">
+              <span class="dd-section-ic" style="--ic-cl:#4dc9ff"><AppIcon name="tag" :size="12" /></span>
+              设备属性
+            </div>
             <div class="grid-3 dd-fields">
               <div class="dd-field"><span class="l">设备类型</span><span class="v">{{ devType.label }} / {{ device.type2 }}</span></div>
-              <div class="dd-field"><span class="l">规格型号</span><span class="v mono">{{ device.model }}</span></div>
+              <div class="dd-field"><span class="l">规格型号</span><span class="v mono emph">{{ device.model }}</span></div>
               <div class="dd-field"><span class="l">投运年份</span><span class="v">{{ device.year }} 年</span></div>
               <div class="dd-field"><span class="l">生产厂家</span><span class="v">{{ ext.manufacturer }}</span></div>
               <div class="dd-field"><span class="l">出厂编号</span><span class="v mono">{{ ext.serialNo }}</span></div>
@@ -94,20 +97,36 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
             </div>
           </div>
 
-          <div class="dd-section">
-            <div class="dd-section-label">采购维保</div>
+          <div class="dd-section dd-section--tagged" style="--tag-cl:#ea8c2e">
+            <div class="dd-section-label">
+              <span class="dd-section-ic" style="--ic-cl:#ea8c2e"><AppIcon name="database" :size="12" /></span>
+              采购维保
+            </div>
             <div class="grid-3 dd-fields">
               <div class="dd-field"><span class="l">采购日期</span><span class="v mono">{{ ext.purchaseDate }}</span></div>
-              <div class="dd-field"><span class="l">采购金额</span><span class="v mono">{{ ext.purchaseAmount }} 万元</span></div>
-              <div class="dd-field"><span class="l">能效等级</span><span class="v">{{ ext.energyEfficiencyLevel }}</span></div>
+              <div class="dd-field"><span class="l">采购金额</span><span class="v mono emph" style="color:var(--brand-2)">{{ ext.purchaseAmount }} <small>万元</small></span></div>
+              <div class="dd-field">
+                <span class="l">能效等级</span>
+                <span :class="['eff-badge', ext.energyEfficiencyLevel === '未达标' ? 'bad' : ext.energyEfficiencyLevel === '一级' ? 'good' : 'mid']">
+                  {{ ext.energyEfficiencyLevel }}
+                </span>
+              </div>
               <div class="dd-field"><span class="l">设计寿命</span><span class="v mono">{{ ext.designLife }} 年</span></div>
               <div class="dd-field"><span class="l">已用年限</span><span class="v mono">{{ ext.serviceYears }} 年</span></div>
-              <div class="dd-field"><span class="l">剩余寿命</span><span class="v mono" :style="{ color: ext.remainingLife <= 2 ? 'var(--eol-red)' : 'var(--text-0)' }">{{ ext.remainingLife }} 年</span></div>
+              <div class="dd-field">
+                <span class="l">剩余寿命</span>
+                <span class="v mono emph" :style="{ color: ext.remainingLife <= 2 ? 'var(--eol-red)' : 'var(--ok)' }">
+                  {{ ext.remainingLife }} <small>年</small>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div class="dd-section" style="margin-bottom:0">
-            <div class="dd-section-label">位置归属</div>
+          <div class="dd-section dd-section--tagged" style="margin-bottom:0;--tag-cl:#7a5cff">
+            <div class="dd-section-label">
+              <span class="dd-section-ic" style="--ic-cl:#7a5cff"><AppIcon name="panel" :size="12" /></span>
+              位置归属
+            </div>
             <div class="grid-3 dd-fields">
               <div class="dd-field"><span class="l">所属建筑</span><span class="v">{{ device.building }}</span></div>
               <div class="dd-field"><span class="l">安装位置</span><span class="v">{{ ext.location }}</span></div>
@@ -156,10 +175,31 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 .dd-card-head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px dashed var(--line); }
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 
-.dd-section { margin-bottom: 22px; }
-.dd-section-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; margin-bottom: 12px; }
-.dd-fields { gap: 14px 20px; }
-.dd-field { display: flex; flex-direction: column; gap: 4px; }
+.dd-section { margin-bottom: 24px; padding-bottom: 22px; border-bottom: 1px dashed var(--line); }
+.dd-section:last-child { border-bottom: 0; padding-bottom: 0; }
+.dd-section-label {
+  font-size: 11.5px; color: var(--text-1); text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 600; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.dd-section-ic {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--ic-cl) 16%, white);
+  color: var(--ic-cl);
+  display: grid; place-items: center;
+}
+.dd-fields { gap: 16px 20px; }
+.dd-field { display: flex; flex-direction: column; gap: 5px; }
 .dd-field .l { font-size: 11.5px; color: var(--text-2); }
 .dd-field .v { font-size: 13px; color: var(--text-0); }
+.dd-field .v.emph { font-size: 16px; font-weight: 700; }
+.dd-field .v.emph small { font-size: 11px; font-weight: 400; color: var(--text-2); margin-left: 2px; }
+
+.eff-badge {
+  display: inline-flex; align-items: center; width: fit-content;
+  padding: 3px 10px; border-radius: 5px; font-size: 12px; font-weight: 600;
+}
+.eff-badge.good { background: rgba(24,165,114,0.12); color: var(--ok); }
+.eff-badge.mid  { background: rgba(234,140,46,0.12); color: var(--eol-low); }
+.eff-badge.bad  { background: rgba(224,57,79,0.12); color: var(--eol-red); }
 </style>

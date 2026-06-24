@@ -48,10 +48,6 @@ const docs = computed(() => {
       </div>
     </div>
 
-    <button class="da-upload">
-      <AppIcon name="upload" :size="13" stroke="var(--brand)" />
-      上传文件
-    </button>
   </div>
 </template>
 
@@ -109,10 +105,5 @@ const docs = computed(() => {
 .da-item:hover .da-dl { opacity: 1; }
 .da-dl:hover { border-color: var(--brand); }
 
-.da-upload {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  width: 100%; padding: 9px; font-size: 12px; color: var(--brand);
-  background: #f6f9ff; border: none; border-top: 1px dashed var(--line); cursor: pointer;
-}
-.da-upload:hover { background: #eef3ff; }
+
 </style>

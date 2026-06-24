@@ -141,9 +141,6 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
-  gap: 1px;
-  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
-}
 .dd-field-row {
   display: flex; align-items: center;
   padding: 9px 14px; gap: 8px; background: #fff;

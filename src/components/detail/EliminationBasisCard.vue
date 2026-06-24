@@ -21,16 +21,6 @@ const elimStyle = computed(() => {
   return { color: 'var(--text-2)', bg: '#f8faff', border: 'var(--line)', label: '—' }
 })
 
-// 从 F_JudgmentCriteria 格式解析：型号前缀匹配: S, 规则:B1-3-1, 批次:第一批
-const criteria = computed(() => {
-  const r = matchedRule.value
-  if (!r) return null
-  return {
-    prefix: props.device.model?.split('-')[0] || '—',
-    ruleId: r.ruleId,
-    batch: r.batch,
-  }
-})
 </script>
 
 <template>
@@ -71,25 +61,19 @@ const criteria = computed(() => {
         <div class="eb-block-title">判定记录</div>
         <div class="eb-rows">
           <div class="eb-row">
-            <span class="l">F_EliminationType</span>
+            <span class="l">淘汰类型</span>
             <span class="v bold" :style="{ color: elimStyle.color }">{{ elimStyle.label }}</span>
           </div>
           <div class="eb-row">
-            <span class="l">F_MatchMethod</span>
+            <span class="l">匹配规则</span>
             <span class="v">{{ matchedRule ? '型号匹配' : '人工判定' }}</span>
           </div>
-          <div class="eb-row" v-if="criteria">
-            <span class="l">F_JudgmentCriteria</span>
-            <span class="v mono small">
-              型号前缀匹配: {{ criteria.prefix }}，规则: {{ criteria.ruleId }}，批次: {{ criteria.batch }}
-            </span>
-          </div>
           <div class="eb-row">
-            <span class="l">F_JudgmentDate</span>
+            <span class="l">判定日期</span>
             <span class="v mono">{{ device.updated?.slice(0, 10) || '—' }}</span>
           </div>
           <div class="eb-row">
-            <span class="l">F_JudgmentBy</span>
+            <span class="l">判定人</span>
             <span class="v">SYSTEM</span>
           </div>
         </div>

@@ -1,8 +1,4 @@
 <script setup>
-// ── components/detail/EliminationBasisCard.vue ────────────────────
-// 淘汰判定详情卡：对应数据库设计 T_ST_EquipmentEliminationBasis
-// 命中规则 / 匹配方法 / 判定依据 / 寿命对比 / 能效差距 / 优先级评分
-
 import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { RULES_LIB_INIT, ACTION_COLORS } from '@/data/rules'
@@ -16,6 +12,15 @@ defineEmits(['view-rule'])
 const matchedRule = computed(() =>
   props.device.ruleHit ? RULES_LIB_INIT.find(r => r.ruleId === props.device.ruleHit) : null
 )
+
+// 淘汰类型配色
+const elimTypeStyle = computed(() => {
+  const t = props.device.level || ''
+  if (t.includes('强制')) return { color: '#e0394f', bg: 'rgba(224,57,79,0.08)', border: 'rgba(224,57,79,0.3)' }
+  if (t.includes('限期')) return { color: '#ea8c2e', bg: 'rgba(234,140,46,0.08)', border: 'rgba(234,140,46,0.3)' }
+  if (t.includes('低效')) return { color: '#f0c040', bg: 'rgba(240,192,64,0.08)', border: 'rgba(240,192,64,0.3)' }
+  return { color: 'var(--text-2)', bg: '#f8faff', border: 'var(--line)' }
+})
 </script>
 
 <template>
@@ -25,57 +30,94 @@ const matchedRule = computed(() =>
       <h3>淘汰判定详情</h3>
     </div>
 
-    <!-- 正常运行：无判定记录 -->
+    <!-- 正常运行 -->
     <div v-if="device.status === 'normal'" class="eb-empty ok">
-      <AppIcon name="check" :size="24" stroke="var(--ok)" />
-      <div class="h">设备能效合格，未命中任何淘汰规则</div>
-      <div class="s">建议保持当前运行状态，定期能效检测</div>
+      <AppIcon name="check" :size="28" stroke="var(--ok)" />
+      <div class="h">设备能效合格</div>
+      <div class="s">未命中任何淘汰规则，建议保持当前运行状态</div>
     </div>
 
     <!-- 待判定 -->
     <div v-else-if="device.status === 'pending'" class="eb-empty">
-      <AppIcon name="info" :size="24" stroke="var(--warn)" />
+      <AppIcon name="info" :size="28" stroke="var(--warn)" />
       <div class="h">待判定</div>
       <div class="s">{{ device.reason || '运行数据未齐全，暂无法完成判定' }}</div>
     </div>
 
-    <!-- 已有判定结果（低效/限期/强制） -->
+    <!-- 已判定（低效/限期/强制） -->
     <template v-else>
-      <!-- 命中规则 -->
-      <div v-if="matchedRule" class="eb-rule-card" :style="{ '--cl': ACTION_COLORS[matchedRule.actionType]?.color }">
-        <div class="header">
-          <span class="rid">{{ matchedRule.ruleId }}</span>
-          <span class="action-tag">{{ matchedRule.actionType }}淘汰</span>
-          <span class="meta">{{ matchedRule.batch }} · 截止 {{ matchedRule.deadline }}</span>
-          <button class="view-rule-btn" @click="$emit('view-rule', matchedRule.ruleId)">
-            <AppIcon name="search" :size="11" /> 查看规则
-          </button>
+
+      <!-- ① 判定结论 -->
+      <div class="elim-conclusion" :style="{ background: elimTypeStyle.bg, borderColor: elimTypeStyle.border }">
+        <div class="elim-type-label" :style="{ color: elimTypeStyle.color }">
+          <AppIcon name="ban" :size="14" :stroke="elimTypeStyle.color" />
+          {{ device.level }}
         </div>
-        <div class="product">{{ matchedRule.product }}</div>
-        <div class="reason">
-          <strong>淘汰理由：</strong>{{ device.reason || matchedRule.reason }}
-        </div>
-        <div class="advice">
-          <AppIcon name="sparkles" :size="13" class="sparks" />
-          <div><strong>改造建议：</strong>{{ matchedRule.advice }}</div>
-        </div>
-      </div>
-      <div v-else class="eb-rule-card manual" style="--cl:var(--text-2)">
-        <div class="header">
-          <span class="action-tag" style="color:var(--text-1)">人工判定</span>
-        </div>
-        <div class="reason"><strong>判定说明：</strong>{{ device.reason || '—' }}</div>
+        <div class="elim-reason">{{ device.reason || matchedRule?.reason || '—' }}</div>
       </div>
 
-      <!-- 判定依据明细 -->
-      <div class="eb-section" style="margin-bottom:0">
-        <div class="eb-section-label">判定依据</div>
-        <div class="grid-3 eb-fields">
-          <div class="eb-field"><span class="l">匹配方法</span><span class="v">型号前缀匹配</span></div>
-          <div class="eb-field"><span class="l">判定日期</span><span class="v mono">{{ device.updated.slice(0, 10) }}</span></div>
-          <div class="eb-field"><span class="l">判定人</span><span class="v">SYSTEM（规则引擎）</span></div>
+      <!-- ② 判定信息 -->
+      <div class="eb-block">
+        <div class="eb-block-title">判定信息</div>
+        <div class="eb-rows">
+          <div class="eb-row">
+            <span class="l">淘汰类型</span>
+            <span class="v" :style="{ color: elimTypeStyle.color, fontWeight: 600 }">
+              {{ device.level?.replace('（建议改造）','') || '—' }}
+            </span>
+          </div>
+          <div class="eb-row">
+            <span class="l">匹配方法</span>
+            <span class="v">{{ matchedRule ? '型号前缀匹配' : '人工判定' }}</span>
+          </div>
+          <div class="eb-row">
+            <span class="l">判定标准</span>
+            <span class="v mono" v-if="matchedRule">
+              型号前缀匹配: {{ device.model?.split('-')[0] }}，规则: {{ matchedRule.ruleId }}，批次: {{ matchedRule.batch }}
+            </span>
+            <span class="v" v-else>—</span>
+          </div>
+          <div class="eb-row">
+            <span class="l">判定日期</span>
+            <span class="v mono">{{ device.updated?.slice(0, 10) || '—' }}</span>
+          </div>
+          <div class="eb-row">
+            <span class="l">判定方式</span>
+            <span class="v">SYSTEM（规则引擎）</span>
+          </div>
         </div>
       </div>
+
+      <!-- ③ 命中规则 -->
+      <div class="eb-block" v-if="matchedRule">
+        <div class="eb-block-title">命中规则</div>
+        <div class="eb-rule-row">
+          <span class="rule-id">{{ matchedRule.ruleId }}</span>
+          <span class="rule-product">{{ matchedRule.product }}</span>
+          <button class="view-rule-btn" @click="$emit('view-rule', matchedRule.ruleId)">
+            <AppIcon name="search" :size="11" /> 查看
+          </button>
+        </div>
+        <div class="eb-rows" style="margin-top:10px">
+          <div class="eb-row">
+            <span class="l">淘汰批次</span>
+            <span class="v mono">{{ matchedRule.batch }}</span>
+          </div>
+          <div class="eb-row" v-if="matchedRule.deadline">
+            <span class="l">截止日期</span>
+            <span class="v mono" style="color:var(--eol-red)">{{ matchedRule.deadline }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 改造建议 -->
+      <div class="eb-block eb-advice" v-if="matchedRule?.advice">
+        <div class="eb-block-title">
+          <AppIcon name="sparkles" :size="13" stroke="var(--ok)" /> 改造建议
+        </div>
+        <div class="advice-text">{{ matchedRule.advice }}</div>
+      </div>
+
     </template>
   </div>
 </template>
@@ -83,49 +125,84 @@ const matchedRule = computed(() =>
 <style scoped>
 .dd-card-head {
   display: flex; align-items: center; gap: 10px;
-  padding-bottom: 14px; margin-bottom: 18px;
+  padding-bottom: 14px; margin-bottom: 16px;
   border-bottom: 1px dashed var(--line);
   flex-wrap: nowrap; white-space: nowrap;
 }
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
+
+/* 空状态 */
 .eb-empty {
-  padding: 30px 24px; text-align: center; color: var(--text-2);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 36px 20px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
-.eb-empty.ok { color: var(--ok); }
-.eb-empty .h { font-size: 13px; font-weight: 500; color: var(--text-1); }
+.eb-empty .h { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .eb-empty.ok .h { color: var(--ok); }
-.eb-empty .s { font-size: 11.5px; color: var(--text-3); }
+.eb-empty .s { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 
-.eb-rule-card {
-  padding: 16px 18px; border-radius: 10px;
-  background: #fff8f9; border: 1px solid rgba(224,57,79,0.22);
-  border-left: 4px solid var(--cl); margin-bottom: 18px;
+/* 判定结论横幅 */
+.elim-conclusion {
+  border: 1px solid; border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
 }
-.eb-rule-card.manual { background: #f8faff; border-color: var(--line); }
-.eb-rule-card .header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-.eb-rule-card .rid { font-family: "JetBrains Mono", monospace; padding: 3px 8px; background: var(--cl); color: white; border-radius: 4px; font-size: 11px; font-weight: 600; }
-.eb-rule-card .action-tag { font-size: 11.5px; font-weight: 500; color: var(--cl); }
-.eb-rule-card .meta { font-size: 11px; color: var(--text-2); font-family: "JetBrains Mono", monospace; }
-.eb-rule-card .view-rule-btn {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; font-size: 11px; color: var(--brand); background: white;
-  border: 1px solid var(--line-strong); border-radius: 5px; cursor: pointer;
+.elim-type-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 15px; font-weight: 700; margin-bottom: 8px;
 }
-.eb-rule-card .view-rule-btn:hover { border-color: var(--brand); background: rgba(47,127,255,0.06); }
-.eb-rule-card .product { font-size: 13px; color: var(--text-0); font-weight: 500; }
-.eb-rule-card .reason { margin-top: 8px; padding: 10px 12px; background: white; border-radius: 6px; font-size: 12px; color: var(--text-1); line-height: 1.6; border: 1px dashed var(--line); }
-.eb-rule-card .advice { margin-top: 8px; padding: 10px 12px; background: linear-gradient(90deg, rgba(43,217,168,0.08), rgba(43,217,168,0.02)); border: 1px solid rgba(43,217,168,0.25); border-radius: 6px; font-size: 12px; color: var(--text-1); line-height: 1.6; display: flex; gap: 8px; align-items: flex-start; }
-.eb-rule-card .advice .sparks { color: var(--ok); flex-shrink: 0; margin-top: 1px; }
-.eb-rule-card .advice strong { color: var(--ok); }
+.elim-reason {
+  font-size: 12px; color: var(--text-1); line-height: 1.7;
+}
 
-.eb-section { margin-bottom: 22px; }
-.eb-section-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; margin-bottom: 12px; }
-.eb-fields { gap: 14px 20px; }
-.eb-field { display: flex; flex-direction: column; gap: 4px; }
-.eb-field .l { font-size: 11.5px; color: var(--text-2); }
-.eb-field .v { font-size: 13px; color: var(--text-0); }
+/* 信息块 */
+.eb-block {
+  margin-bottom: 16px;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.eb-block-title {
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 8px 14px; background: #f6f9ff;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px;
+}
 
-.life-bar-wrap, .life-bar-track, .life-bar-fill, .life-bar-labels,
-.priority-row, .priority-score, .priority-bar-track, .priority-bar-fill, .priority-tag { display: none; }
+/* 行列表 */
+.eb-rows { display: flex; flex-direction: column; }
+.eb-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 9px 14px; gap: 12px; background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.eb-row:last-child { border-bottom: none; }
+.eb-row:nth-child(even) { background: #f9fbff; }
+.eb-row .l { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+.eb-row .v { font-size: 12px; color: var(--text-0); text-align: right; }
+.eb-row .v.mono { font-family: "JetBrains Mono", monospace; font-size: 11px; }
+
+/* 命中规则行 */
+.eb-rule-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--line);
+}
+.rule-id {
+  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 700;
+  background: var(--brand); color: #fff; padding: 2px 8px; border-radius: 4px;
+  flex-shrink: 0;
+}
+.rule-product { font-size: 12px; color: var(--text-1); flex: 1; }
+.view-rule-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; font-size: 11px; color: var(--brand);
+  background: white; border: 1px solid var(--line-strong);
+  border-radius: 5px; cursor: pointer; flex-shrink: 0;
+}
+.view-rule-btn:hover { border-color: var(--brand); background: rgba(47,127,255,0.06); }
+
+/* 改造建议 */
+.eb-advice { border-color: rgba(43,217,168,0.3); }
+.eb-advice .eb-block-title { background: rgba(43,217,168,0.06); color: var(--ok); border-color: rgba(43,217,168,0.25); }
+.advice-text {
+  padding: 12px 14px; font-size: 12px; color: var(--text-1);
+  line-height: 1.75; background: #fff;
+}
 </style>

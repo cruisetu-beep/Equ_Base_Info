@@ -3,16 +3,11 @@
 // 设备详情页 Phase 7：页面骨架 + 基础信息
 // Phase 8 起逐步补充：运行参数 / 知识图谱摘要 / 判定详情 / 文档 / 时间线 / 改造计划
 
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuntimeParamsCard from './RuntimeParamsCard.vue'
 import EnergyChartCard from './EnergyChartCard.vue'
-import KnowledgeGraphSummary from './KnowledgeGraphSummary.vue'
-import GraphCanvas from './GraphCanvas.vue'
 import EliminationBasisCard from './EliminationBasisCard.vue'
-import DeviceDocList from './DeviceDocList.vue'
-import DeviceTimeline from './DeviceTimeline.vue'
-import ReplacementPlanCard from './ReplacementPlanCard.vue'
 import { SAMPLE_DEVICES, DEV_TYPE_MAP, STATUS_MAP, getDeviceDetailExt } from '@/data/devices'
 
 const props = defineProps({
@@ -31,7 +26,7 @@ const deviceCount = computed(() => {
 })
 
 const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseout: 'ban' }
-const showGraphModal = ref(false)
+
 </script>
 
 <template>
@@ -78,9 +73,7 @@ const showGraphModal = ref(false)
       </div>
     </div>
 
-    <!-- 主体两栏 -->
     <div class="dd-grid">
-      <!-- 左栏 -->
       <div class="dd-main">
 
         <!-- 基础信息卡 -->
@@ -127,33 +120,8 @@ const showGraphModal = ref(false)
         <!-- 淘汰判定详情卡 -->
         <EliminationBasisCard :device="device" :ext="ext" @view-rule="id => $emit('view-rule', id)" />
 
-        <!-- 更新改造计划卡 -->
-        <ReplacementPlanCard :device="device" />
-      </div>
-
-      <!-- 右栏 -->
-      <div class="dd-side">
-        <KnowledgeGraphSummary :device="device" @view-graph="showGraphModal = true" />
-        <DeviceDocList :device="device" />
-        <DeviceTimeline :device="device" />
       </div>
     </div>
-
-    <!-- 知识图谱完整视图弹框 -->
-    <Teleport to="body">
-      <div v-if="showGraphModal" class="graph-modal-backdrop" @click.self="showGraphModal = false">
-        <div class="graph-modal-panel">
-          <div class="graph-modal-head">
-            <AppIcon name="graph" :size="16" stroke="#4dc9ff" />
-            <span class="h">{{ device.name }} · 知识图谱</span>
-            <button class="graph-modal-close" @click="showGraphModal = false">✕</button>
-          </div>
-          <div class="graph-modal-body">
-            <GraphCanvas :device="device" />
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -219,33 +187,4 @@ const showGraphModal = ref(false)
 .eff-badge.good { background: rgba(24,165,114,0.12); color: var(--ok); }
 .eff-badge.mid  { background: rgba(234,140,46,0.12); color: var(--eol-low); }
 .eff-badge.bad  { background: rgba(224,57,79,0.12); color: var(--eol-red); }
-
-/* ── 知识图谱弹框 ── */
-.graph-modal-backdrop {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(10, 20, 40, 0.55);
-  backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px;
-}
-.graph-modal-panel {
-  width: 100%; max-width: 1200px; height: 100%; max-height: 760px;
-  background: #243650; border-radius: 14px; overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
-}
-.graph-modal-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 18px; background: rgba(240,245,252,0.98);
-  border-bottom: 1px solid rgba(100,160,220,0.2); flex-shrink: 0;
-}
-.graph-modal-head .h { font-size: 14px; color: #16243f; font-weight: 600; }
-.graph-modal-close {
-  margin-left: auto; width: 28px; height: 28px; border-radius: 6px;
-  background: rgba(100,140,200,0.08); border: 1px solid rgba(100,140,200,0.25);
-  color: #4a6080; cursor: pointer; font-size: 13px; line-height: 1;
-  display: grid; place-items: center;
-}
-.graph-modal-close:hover { background: rgba(229,78,110,0.12); border-color: var(--danger); color: var(--danger); }
-.graph-modal-body { flex: 1; min-height: 0; }
 </style>

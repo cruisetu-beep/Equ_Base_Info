@@ -47,7 +47,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
           <AppIcon name="chevron-left" :size="16" />
         </button>
         <div class="dd-thumb" :style="{ '--cl': devType.color }">
-          <AppIcon :name="devType.icon" :size="28" :stroke="devType.color" />
+          <AppIcon :name="devType.icon" :size="20" :stroke="devType.color" />
         </div>
         <div>
           <h1 class="page-title" style="gap:10px">
@@ -122,7 +122,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 .device-detail { display: flex; flex-direction: column; gap: 20px; }
 
 .dd-thumb {
-  width: 56px; height: 56px; border-radius: 12px;
+  width: 40px; height: 40px; border-radius: 10px;
   background: linear-gradient(135deg, #eaf2ff, #e2dcff);
   border: 1px solid var(--line-strong);
   display: grid; place-items: center; color: var(--cl); flex-shrink: 0;

@@ -28,7 +28,7 @@ const docs = computed(() => {
 </script>
 
 <template>
-  <div class="eb-block da-block">
+  <div class="da-wrap">
     <div class="eb-block-title">
       <AppIcon name="database" :size="13" stroke="var(--brand)" />
       设备档案
@@ -56,7 +56,10 @@ const docs = computed(() => {
 </template>
 
 <style scoped>
-.da-block { margin-bottom: 0; }
+.da-wrap {
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  margin-bottom: 12px;
+}
 
 .eb-block-title {
   display: flex; align-items: center; gap: 6px;
@@ -68,37 +71,37 @@ const docs = computed(() => {
 .da-count { margin-left: auto; font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace; }
 
 .da-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 10px; padding: 14px; background: #fff;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; padding: 12px; background: #fff;
 }
 
 .da-item {
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; padding: 12px 8px; border-radius: 8px;
+  gap: 5px; padding: 10px 6px 8px; border-radius: 8px;
   border: 1px solid var(--line); background: #fafbff;
-  cursor: pointer; position: relative;
+  cursor: pointer; position: relative; min-width: 0;
   transition: box-shadow 0.15s, border-color 0.15s;
 }
 .da-item:hover { border-color: var(--brand); box-shadow: 0 2px 10px rgba(47,127,255,0.1); }
 
 .da-icon {
   position: relative; display: flex; align-items: center; justify-content: center;
-  width: 48px; height: 48px;
+  width: 40px; height: 44px; flex-shrink: 0;
 }
 .da-ext {
   position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-  font-size: 8px; font-weight: 700; color: #fff; letter-spacing: 0.03em;
-  background: var(--brand); padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+  font-size: 7px; font-weight: 700; color: #fff; letter-spacing: 0.03em;
+  background: var(--brand); padding: 1px 4px; border-radius: 3px; white-space: nowrap;
 }
 
 .da-name {
-  font-size: 10.5px; color: var(--text-1); text-align: center;
+  font-size: 10px; color: var(--text-1); text-align: center;
   width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .da-dl {
-  position: absolute; top: 6px; right: 6px;
-  width: 20px; height: 20px; border-radius: 4px;
+  position: absolute; top: 5px; right: 5px;
+  width: 18px; height: 18px; border-radius: 4px;
   background: white; border: 1px solid var(--line);
   display: grid; place-items: center; cursor: pointer; opacity: 0;
   transition: opacity 0.15s;

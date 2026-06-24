@@ -169,7 +169,7 @@ const showGraphModal = ref(false)
 
 .dd-fields-simple {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
@@ -177,8 +177,9 @@ const showGraphModal = ref(false)
   display: flex; align-items: center;
   padding: 9px 14px; gap: 8px; background: #fff;
 }
-.dd-field-row:nth-child(4n+3),
-.dd-field-row:nth-child(4n+4) { background: #f8fafd; }
+.dd-field-row:nth-child(6n+4),
+.dd-field-row:nth-child(6n+5),
+.dd-field-row:nth-child(6n+6) { background: #f8fafd; }
 .dd-field-row .l { font-size: 12px; color: var(--text-2); flex-shrink: 0; white-space: nowrap; }
 .dd-field-row .v { font-size: 12px; color: var(--text-0); margin-left: 8px; }
 .dd-field-row .v.mono { font-family: "JetBrains Mono", monospace; }

@@ -41,7 +41,7 @@ defineProps({
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 .rp-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
@@ -52,8 +52,9 @@ defineProps({
   background: #fff;
   transition: background 0.15s;
 }
-.rp-row:nth-child(4n+3),
-.rp-row:nth-child(4n+4) { background: #f8fafd; }
+.rp-row:nth-child(6n+4),
+.rp-row:nth-child(6n+5),
+.rp-row:nth-child(6n+6) { background: #f8fafd; }
 .rp-row:hover { background: #f0f5ff; }
 
 .rp-name {

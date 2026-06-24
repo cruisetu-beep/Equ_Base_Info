@@ -50,8 +50,12 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
           <AppIcon :name="devType.icon" :size="20" :stroke="devType.color" />
         </div>
         <div>
-          <h1 class="page-title" style="gap:10px">
+          <h1 class="page-title" style="gap:10px;display:flex;align-items:center">
             {{ device.name }}
+            <span v-if="device.status === 'phaseout'" class="phaseout-badge">
+              <AppIcon name="ban" :size="12" stroke="#fff" />
+              淘汰设备
+            </span>
           </h1>
         </div>
       </div>
@@ -117,8 +121,21 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 <style scoped>
 .device-detail { display: flex; flex-direction: column; gap: 20px; }
 
-.dd-thumb {
-  width: 40px; height: 40px; border-radius: 10px;
+.phaseout-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--eol-red, #e0394f); color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  padding: 3px 10px 3px 8px; border-radius: 6px;
+  vertical-align: middle; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(224,57,79,0.35);
+  animation: badge-pulse 2.4s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(224,57,79,0.35); }
+  50%       { box-shadow: 0 2px 16px rgba(224,57,79,0.65); }
+}
+
+.dd-thumb {  width: 40px; height: 40px; border-radius: 10px;
   background: linear-gradient(135deg, #eaf2ff, #e2dcff);
   border: 1px solid var(--line-strong);
   display: grid; place-items: center; color: var(--cl); flex-shrink: 0;

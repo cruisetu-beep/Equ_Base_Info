@@ -185,7 +185,7 @@ const showGraphModal = ref(false)
 .dd-side { display: flex; flex-direction: column; gap: 16px; }
 
 .dd-card { padding: 22px 26px; }
-.dd-card-head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px dashed var(--line); }
+.dd-card-head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px dashed var(--line); flex-wrap: nowrap; white-space: nowrap; }
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 
 .dd-section { margin-bottom: 24px; padding-bottom: 22px; border-bottom: 1px dashed var(--line); }

@@ -93,8 +93,7 @@ const docs = computed(() => {
 
 .da-name {
   font-size: 10.5px; color: var(--text-1); text-align: center;
-  word-break: break-all; line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .da-dl {

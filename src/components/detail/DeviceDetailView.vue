@@ -6,6 +6,7 @@
 import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuntimeParamsCard from './RuntimeParamsCard.vue'
+import EnergyChartCard from './EnergyChartCard.vue'
 import KnowledgeGraphSummary from './KnowledgeGraphSummary.vue'
 import GraphCanvas from './GraphCanvas.vue'
 import EliminationBasisCard from './EliminationBasisCard.vue'
@@ -84,63 +85,39 @@ const showGraphModal = ref(false)
             <h3>基础信息</h3>
           </div>
 
-          <div class="dd-section dd-section--tagged" style="--tag-cl:#4dc9ff">
-            <div class="dd-section-label">
-              <span class="dd-section-ic" style="--ic-cl:#4dc9ff"><AppIcon name="tag" :size="12" /></span>
-              设备属性
+          <div class="dd-fields-simple">
+            <div class="dd-field-row">
+              <span class="l">设备编号</span>
+              <span class="v mono">{{ device.code }}</span>
             </div>
-            <div class="grid-3 dd-fields">
-              <div class="dd-field"><span class="l">设备类型</span><span class="v">{{ devType.label }} / {{ device.type2 }}</span></div>
-              <div class="dd-field"><span class="l">规格型号</span><span class="v mono emph">{{ device.model }}</span></div>
-              <div class="dd-field"><span class="l">投运年份</span><span class="v">{{ device.year }} 年</span></div>
-              <div class="dd-field"><span class="l">生产厂家</span><span class="v">{{ ext.manufacturer }}</span></div>
-              <div class="dd-field"><span class="l">出厂编号</span><span class="v mono">{{ ext.serialNo }}</span></div>
-              <div class="dd-field"><span class="l">出厂日期</span><span class="v mono">{{ ext.manufactureDate }}</span></div>
+            <div class="dd-field-row">
+              <span class="l">所属建筑</span>
+              <span class="v">{{ device.building }}</span>
             </div>
-          </div>
-
-          <div class="dd-section dd-section--tagged" style="--tag-cl:#ea8c2e">
-            <div class="dd-section-label">
-              <span class="dd-section-ic" style="--ic-cl:#ea8c2e"><AppIcon name="database" :size="12" /></span>
-              采购维保
+            <div class="dd-field-row" v-if="device.type2">
+              <span class="l">设备类型</span>
+              <span class="v">{{ devType.label }} / {{ device.type2 }}</span>
             </div>
-            <div class="grid-3 dd-fields">
-              <div class="dd-field"><span class="l">采购日期</span><span class="v mono">{{ ext.purchaseDate }}</span></div>
-              <div class="dd-field"><span class="l">采购金额</span><span class="v mono emph" style="color:var(--brand-2)">{{ ext.purchaseAmount }} <small>万元</small></span></div>
-              <div class="dd-field">
-                <span class="l">能效等级</span>
-                <span :class="['eff-badge', ext.energyEfficiencyLevel === '未达标' ? 'bad' : ext.energyEfficiencyLevel === '一级' ? 'good' : 'mid']">
-                  {{ ext.energyEfficiencyLevel }}
-                </span>
-              </div>
-              <div class="dd-field"><span class="l">设计寿命</span><span class="v mono">{{ ext.designLife }} 年</span></div>
-              <div class="dd-field"><span class="l">已用年限</span><span class="v mono">{{ ext.serviceYears }} 年</span></div>
-              <div class="dd-field">
-                <span class="l">剩余寿命</span>
-                <span class="v mono emph" :style="{ color: ext.remainingLife <= 2 ? 'var(--eol-red)' : 'var(--ok)' }">
-                  {{ ext.remainingLife }} <small>年</small>
-                </span>
-              </div>
+            <div class="dd-field-row" v-if="device.model">
+              <span class="l">规格型号</span>
+              <span class="v mono emph">{{ device.model }}</span>
             </div>
-          </div>
-
-          <div class="dd-section dd-section--tagged" style="margin-bottom:0;--tag-cl:#7a5cff">
-            <div class="dd-section-label">
-              <span class="dd-section-ic" style="--ic-cl:#7a5cff"><AppIcon name="panel" :size="12" /></span>
-              位置归属
+            <div class="dd-field-row" v-if="device.year">
+              <span class="l">投运年份</span>
+              <span class="v">{{ device.year }} 年（已运行 {{ ext.serviceYears }} 年）</span>
             </div>
-            <div class="grid-3 dd-fields">
-              <div class="dd-field"><span class="l">所属建筑</span><span class="v">{{ device.building }}</span></div>
-              <div class="dd-field"><span class="l">安装位置</span><span class="v">{{ ext.location }}</span></div>
-              <div class="dd-field"><span class="l">所属系统</span><span class="v">{{ ext.system }}</span></div>
-              <div class="dd-field"><span class="l">计量点位</span><span class="v mono">{{ ext.meteringPointId }}</span></div>
-              <div class="dd-field"><span class="l">数据更新</span><span class="v mono">{{ device.updated }}</span></div>
+            <div class="dd-field-row">
+              <span class="l">数据更新</span>
+              <span class="v mono" style="color:var(--text-3)">{{ device.updated }}</span>
             </div>
           </div>
         </div>
 
         <!-- 运行参数卡 -->
-        <RuntimeParamsCard :params="device.params" />
+        <RuntimeParamsCard :paramGroups="device.paramGroups" />
+
+        <!-- 能耗图表卡 -->
+        <EnergyChartCard :energyData="device.energyData" :deviceName="device.name" />
 
         <!-- 淘汰判定详情卡 -->
         <EliminationBasisCard :device="device" :ext="ext" @view-rule="id => $emit('view-rule', id)" />
@@ -185,7 +162,20 @@ const showGraphModal = ref(false)
   display: grid; place-items: center; color: var(--cl); flex-shrink: 0;
 }
 
-.dd-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: flex-start; }
+.dd-fields-simple {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.dd-field-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; gap: 12px; background: #fff;
+}
+.dd-field-row:nth-child(even) { background: #f8fafd; }
+.dd-field-row .l { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+.dd-field-row .v { font-size: 12px; color: var(--text-0); text-align: right; }
+.dd-field-row .v.mono { font-family: "JetBrains Mono", monospace; }
+.dd-field-row .v.emph { font-weight: 600; color: var(--brand); }
+
 .dd-main { display: flex; flex-direction: column; gap: 16px; }
 .dd-side { display: flex; flex-direction: column; gap: 16px; }
 

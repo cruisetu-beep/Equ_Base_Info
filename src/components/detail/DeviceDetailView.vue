@@ -52,10 +52,6 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
         <div>
           <h1 class="page-title" style="gap:10px">
             {{ device.name }}
-            <span :class="['level-tag', device.status]">
-              <AppIcon :name="STATUS_ICON[device.status]" :size="11" />
-              {{ device.level }}
-            </span>
           </h1>
         </div>
       </div>

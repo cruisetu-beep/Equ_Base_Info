@@ -142,11 +142,11 @@ const progressPct = computed(() => {
         </div>
         <div class="params">
           <div
-            v-for="([k, v]) in Object.entries(curDevice.params || {}).slice(0, 4)"
-            :key="k"
+            v-for="item in (curDevice.paramGroups || []).flatMap(g => g.items).slice(0, 4)"
+            :key="item.name"
             class="param-row"
           >
-            <span class="pl">{{ k }}</span><span class="pv">{{ v }}</span>
+            <span class="pl">{{ item.name }}</span><span class="pv">{{ item.value }}</span>
           </div>
         </div>
         <div class="info-rows">

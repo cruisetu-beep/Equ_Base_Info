@@ -61,8 +61,8 @@ function handleStart() {
           <div class="meta">{{ DEV_TYPE_MAP[d.typeK].label }} · {{ d.type2 }} · <span class="mono">{{ d.model }}</span> · {{ d.year }}</div>
         </div>
         <div class="params-mini">
-          <div v-for="([k, v]) in Object.entries(d.params).slice(0, 2)" :key="k">
-            {{ k }}: <strong style="color:var(--text-0)">{{ v }}</strong>
+          <div v-for="item in (d.paramGroups || []).flatMap(g => g.items).slice(0, 2)" :key="item.name">
+            {{ item.name }}: <strong style="color:var(--text-0)">{{ item.value }}</strong>
           </div>
         </div>
         <div class="building-mini">{{ d.building }}</div>

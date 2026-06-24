@@ -210,12 +210,12 @@ const STATUS_ICON = {
           <!-- 核心参数 -->
           <div class="params">
             <div
-              v-for="([k, v]) in Object.entries(d.params).slice(0, 4)"
-              :key="k"
+              v-for="item in (d.paramGroups || []).flatMap(g => g.items).slice(0, 4)"
+              :key="item.name"
               class="param-row"
             >
-              <span class="pl">{{ k }}</span>
-              <span class="pv" :title="v">{{ v }}</span>
+              <span class="pl">{{ item.name }}</span>
+              <span class="pv" :title="item.value">{{ item.value }}</span>
             </div>
           </div>
 

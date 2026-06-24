@@ -79,7 +79,7 @@ function loadSample() {
               <td>{{ DEV_TYPE_MAP[d.typeK]?.label }} / {{ d.type2 }}</td>
               <td class="mono">{{ d.model }}</td>
               <td class="mono">{{ d.year }}</td>
-              <td class="mono">{{ Object.entries(d.params).map(([k,v]) => `${k}=${v}`).join(' · ') }}</td>
+              <td class="mono">{{ (d.paramGroups || []).flatMap(g => g.items).map(i => `${i.name}=${i.value}`).join(' · ') }}</td>
             </tr>
           </tbody>
         </table>

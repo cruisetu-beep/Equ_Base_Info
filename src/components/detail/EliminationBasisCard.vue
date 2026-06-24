@@ -16,24 +16,6 @@ defineEmits(['view-rule'])
 const matchedRule = computed(() =>
   props.device.ruleHit ? RULES_LIB_INIT.find(r => r.ruleId === props.device.ruleHit) : null
 )
-
-const lifeUsedPct = computed(() => {
-  if (!props.ext.designLife) return 0
-  return Math.min(100, Math.round((props.ext.serviceYears / props.ext.designLife) * 100))
-})
-
-const lifeBarColor = computed(() => {
-  if (lifeUsedPct.value >= 100) return 'var(--eol-red)'
-  if (lifeUsedPct.value >= 80) return 'var(--eol-low)'
-  return 'var(--ok)'
-})
-
-const priorityLevel = computed(() => {
-  const s = props.ext.priorityScore
-  if (s >= 80) return { label: '高优先级', color: 'var(--eol-red)' }
-  if (s >= 50) return { label: '中优先级', color: 'var(--eol-low)' }
-  return { label: '低优先级', color: 'var(--ok)' }
-})
 </script>
 
 <template>
@@ -86,44 +68,12 @@ const priorityLevel = computed(() => {
       </div>
 
       <!-- 判定依据明细 -->
-      <div class="eb-section">
+      <div class="eb-section" style="margin-bottom:0">
         <div class="eb-section-label">判定依据</div>
         <div class="grid-3 eb-fields">
           <div class="eb-field"><span class="l">匹配方法</span><span class="v">型号前缀匹配</span></div>
           <div class="eb-field"><span class="l">判定日期</span><span class="v mono">{{ device.updated.slice(0, 10) }}</span></div>
           <div class="eb-field"><span class="l">判定人</span><span class="v">SYSTEM（规则引擎）</span></div>
-        </div>
-      </div>
-
-      <!-- 寿命对比 -->
-      <div class="eb-section">
-        <div class="eb-section-label">寿命周期</div>
-        <div class="life-bar-wrap">
-          <div class="life-bar-track">
-            <div class="life-bar-fill" :style="{ width: `${lifeUsedPct}%`, background: lifeBarColor }" />
-          </div>
-          <div class="life-bar-labels">
-            <span>已用 {{ ext.serviceYears }} 年</span>
-            <span class="mono">{{ lifeUsedPct }}%</span>
-            <span>设计寿命 {{ ext.designLife }} 年</span>
-          </div>
-        </div>
-        <div class="grid-3 eb-fields" style="margin-top:14px">
-          <div class="eb-field"><span class="l">剩余寿命</span><span class="v mono" :style="{ color: ext.remainingLife <= 2 ? 'var(--eol-red)' : 'var(--text-0)' }">{{ ext.remainingLife }} 年</span></div>
-          <div class="eb-field"><span class="l">能效差距</span><span class="v mono" style="color:var(--eol-low)">{{ ext.energyEfficiencyGap }}%</span></div>
-          <div class="eb-field"><span class="l">年超额能耗</span><span class="v mono" style="color:var(--eol-red)">{{ ext.annualExcessEnergy }} 吨标煤</span></div>
-        </div>
-      </div>
-
-      <!-- 优先级评分 -->
-      <div class="eb-section" style="margin-bottom:0">
-        <div class="eb-section-label">更新优先级评分</div>
-        <div class="priority-row">
-          <div class="priority-score" :style="{ color: priorityLevel.color }">{{ ext.priorityScore }}</div>
-          <div class="priority-bar-track">
-            <div class="priority-bar-fill" :style="{ width: `${ext.priorityScore}%`, background: priorityLevel.color }" />
-          </div>
-          <span class="priority-tag" :style="{ color: priorityLevel.color, borderColor: priorityLevel.color }">{{ priorityLevel.label }}</span>
         </div>
       </div>
     </template>
@@ -169,14 +119,6 @@ const priorityLevel = computed(() => {
 .eb-field .l { font-size: 11.5px; color: var(--text-2); }
 .eb-field .v { font-size: 13px; color: var(--text-0); }
 
-.life-bar-wrap { display: flex; flex-direction: column; gap: 8px; }
-.life-bar-track { height: 10px; background: #e3ebf7; border-radius: 5px; overflow: hidden; position: relative; }
-.life-bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s; }
-.life-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-2); }
-
-.priority-row { display: flex; align-items: center; gap: 14px; }
-.priority-score { font-family: "Orbitron", sans-serif; font-size: 26px; font-weight: 700; min-width: 50px; }
-.priority-bar-track { flex: 1; height: 8px; background: #e3ebf7; border-radius: 4px; overflow: hidden; }
-.priority-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
-.priority-tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid; flex-shrink: 0; }
+.life-bar-wrap, .life-bar-track, .life-bar-fill, .life-bar-labels,
+.priority-row, .priority-score, .priority-bar-track, .priority-bar-fill, .priority-tag { display: none; }
 </style>

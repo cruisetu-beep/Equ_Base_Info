@@ -57,13 +57,6 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
               {{ device.level }}
             </span>
           </h1>
-          <div class="page-subtitle" style="display:flex;align-items:center;gap:10px;margin-top:8px">
-            <span class="mono">{{ device.code }}</span>
-            <span style="color:var(--text-3)">·</span>
-            <span>{{ devType.label }} / {{ device.type2 }}</span>
-            <span style="color:var(--text-3)">·</span>
-            <span class="mono">{{ device.model }}</span>
-          </div>
         </div>
       </div>
       <div style="display:flex;gap:10px">

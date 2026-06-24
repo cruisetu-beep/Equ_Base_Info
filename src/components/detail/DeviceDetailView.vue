@@ -24,6 +24,11 @@ const device = computed(() => SAMPLE_DEVICES.find(d => d.id === props.deviceId) 
 const devType = computed(() => device.value ? (DEV_TYPE_MAP[device.value.typeK] || DEV_TYPE_MAP.other) : null)
 const statusInfo = computed(() => device.value ? STATUS_MAP[device.value.status] : null)
 const ext = computed(() => device.value ? getDeviceDetailExt(device.value) : null)
+const deviceCount = computed(() => {
+  const all = (device.value?.paramGroups || []).flatMap(g => g.items)
+  const item = all.find(i => i.name === '设备数量')
+  return item ? item.value : '—'
+})
 
 const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseout: 'ban' }
 const showGraphModal = ref(false)
@@ -87,28 +92,28 @@ const showGraphModal = ref(false)
 
           <div class="dd-fields-simple">
             <div class="dd-field-row">
+              <span class="l">建筑编号</span>
+              <span class="v mono">{{ device.buildingCode || '—' }}</span>
+            </div>
+            <div class="dd-field-row">
+              <span class="l">建筑名称</span>
+              <span class="v">{{ device.building || '—' }}</span>
+            </div>
+            <div class="dd-field-row">
               <span class="l">设备编号</span>
               <span class="v mono">{{ device.code }}</span>
             </div>
             <div class="dd-field-row">
-              <span class="l">所属建筑</span>
-              <span class="v">{{ device.building }}</span>
-            </div>
-            <div class="dd-field-row" v-if="device.type2">
-              <span class="l">设备类型</span>
-              <span class="v">{{ devType.label }} / {{ device.type2 }}</span>
-            </div>
-            <div class="dd-field-row" v-if="device.model">
-              <span class="l">规格型号</span>
-              <span class="v mono emph">{{ device.model }}</span>
-            </div>
-            <div class="dd-field-row" v-if="device.year">
-              <span class="l">投运年份</span>
-              <span class="v">{{ device.year }} 年（已运行 {{ ext.serviceYears }} 年）</span>
+              <span class="l">设备名称</span>
+              <span class="v">{{ device.name }}</span>
             </div>
             <div class="dd-field-row">
-              <span class="l">数据更新</span>
-              <span class="v mono" style="color:var(--text-3)">{{ device.updated }}</span>
+              <span class="l">设备类型</span>
+              <span class="v">{{ device.type2 || devType.label || '—' }}</span>
+            </div>
+            <div class="dd-field-row">
+              <span class="l">设备数量</span>
+              <span class="v">{{ deviceCount }}</span>
             </div>
           </div>
         </div>

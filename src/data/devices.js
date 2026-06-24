@@ -414,7 +414,7 @@ export const SAMPLE_DEVICES = [
     reason: "立式水管锅炉热效率低，2009 年第一批已列入强制淘汰",
     updated: "2026-04-08 11:20",
   },
-].map(d => ({ ...d, energyData: genEnergyData(d) }))
+].map(d => ({ ...d, energyData: genEnergyData(d), buildingCode: `BLD-${d.code.split('-')[2] || '0000'}` }))
 
 // 铭牌 OCR 演示预设结果
 export const OCR_PRESET = {

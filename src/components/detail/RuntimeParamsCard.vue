@@ -32,6 +32,13 @@ defineProps({
 </template>
 
 <style scoped>
+.dd-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px dashed var(--line);
+  flex-wrap: nowrap; white-space: nowrap;
+}
+.dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 .rp-list {
   display: flex; flex-direction: column; gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;

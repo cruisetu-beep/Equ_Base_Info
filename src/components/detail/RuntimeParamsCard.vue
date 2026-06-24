@@ -41,7 +41,7 @@ defineProps({
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 .rp-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }

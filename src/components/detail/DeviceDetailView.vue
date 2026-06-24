@@ -137,7 +137,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
 .dd-fields-simple {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }

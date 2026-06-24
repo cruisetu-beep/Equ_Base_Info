@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
+import DeviceArchive from './DeviceArchive.vue'
 
 const props = defineProps({
   device: { type: Object, required: true },
@@ -96,14 +97,8 @@ const elimStyle = computed(() => {
         </div>
       </div>
 
-      <!-- ④ 改造建议 -->
-      <div class="eb-block eb-advice" v-if="matchedRule?.advice">
-        <div class="eb-block-title">
-          <AppIcon name="sparkles" :size="13" stroke="var(--ok)" />
-          改造建议
-        </div>
-        <div class="advice-text">{{ matchedRule.advice }}</div>
-      </div>
+      <!-- ③ 设备档案 -->
+      <DeviceArchive :device="device" />
 
     </template>
   </div>
@@ -183,8 +178,5 @@ const elimStyle = computed(() => {
 }
 .view-btn:hover { border-color: var(--brand); background: rgba(47,127,255,0.06); }
 
-/* 改造建议 */
-.eb-advice { border-color: rgba(43,217,168,0.3); }
-.eb-advice .eb-block-title { background: rgba(43,217,168,0.06); color: var(--ok); border-color: rgba(43,217,168,0.25); }
-.advice-text { padding: 12px 14px; font-size: 12px; color: var(--text-1); line-height: 1.8; background: #fff; }
+
 </style>

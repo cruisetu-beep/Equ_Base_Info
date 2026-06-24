@@ -74,15 +74,14 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
     </div>
 
     <div class="dd-grid">
+      <!-- 左栏：基础信息 + 设备参数 + 今日能耗 -->
       <div class="dd-main">
-
         <!-- 基础信息卡 -->
         <div class="card dd-card">
           <div class="dd-card-head">
             <AppIcon name="cube" :size="16" stroke="var(--brand)" />
             <h3>基础信息</h3>
           </div>
-
           <div class="dd-fields-simple">
             <div class="dd-field-row">
               <span class="l">建筑编号</span>
@@ -116,10 +115,11 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
         <!-- 能耗图表卡 -->
         <EnergyChartCard :energyData="device.energyData" :deviceName="device.name" />
+      </div>
 
-        <!-- 淘汰判定详情卡 -->
+      <!-- 右栏：淘汰判定详情 -->
+      <div class="dd-side">
         <EliminationBasisCard :device="device" :ext="ext" @view-rule="id => $emit('view-rule', id)" />
-
       </div>
     </div>
   </div>
@@ -137,7 +137,10 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
 .dd-fields-simple {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
   gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
@@ -155,6 +158,12 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
 .dd-main { display: flex; flex-direction: column; gap: 16px; }
 .dd-side { display: flex; flex-direction: column; gap: 16px; }
+.dd-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 16px;
+  align-items: flex-start;
+}
 
 .dd-card { padding: 22px 26px; }
 .dd-card-head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px dashed var(--line); flex-wrap: nowrap; white-space: nowrap; }

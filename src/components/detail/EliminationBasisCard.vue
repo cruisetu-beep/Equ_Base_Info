@@ -81,6 +81,13 @@ const matchedRule = computed(() =>
 </template>
 
 <style scoped>
+.dd-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px dashed var(--line);
+  flex-wrap: nowrap; white-space: nowrap;
+}
+.dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 .eb-empty {
   padding: 30px 24px; text-align: center; color: var(--text-2);
   display: flex; flex-direction: column; align-items: center; gap: 8px;

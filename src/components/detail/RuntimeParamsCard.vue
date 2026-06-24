@@ -40,26 +40,29 @@ defineProps({
 }
 .dd-card-head h3 { margin: 0; font-size: 15px; color: var(--text-0); }
 .rp-list {
-  display: flex; flex-direction: column; gap: 1px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
 
 .rp-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 14px; gap: 12px;
+  display: flex; align-items: center;
+  padding: 9px 14px; gap: 8px;
   background: #fff;
   transition: background 0.15s;
 }
-.rp-row:nth-child(even) { background: #f8fafd; }
+.rp-row:nth-child(4n+3),
+.rp-row:nth-child(4n+4) { background: #f8fafd; }
 .rp-row:hover { background: #f0f5ff; }
 
 .rp-name {
-  font-size: 12px; color: var(--text-2); flex-shrink: 0;
+  font-size: 12px; color: var(--text-2); flex-shrink: 0; white-space: nowrap;
 }
 .rp-val {
   font-family: "JetBrains Mono", monospace; font-size: 12px;
   color: var(--text-0); font-weight: 500;
-  text-align: right; word-break: break-all;
+  margin-left: 8px; word-break: break-all;
 }
 
 .rp-empty {

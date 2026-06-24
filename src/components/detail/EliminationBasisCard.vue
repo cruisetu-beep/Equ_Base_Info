@@ -76,7 +76,6 @@ const elimStyle = computed(() => {
             <span class="l">命中规则</span>
             <span class="v rule-inline">
               <span class="rule-id">{{ matchedRule.ruleId }}</span>
-              <span class="rule-product">{{ matchedRule.product }}</span>
               <button class="view-btn" @click="$emit('view-rule', matchedRule.ruleId)">
                 <AppIcon name="search" :size="11" /> 查看
               </button>

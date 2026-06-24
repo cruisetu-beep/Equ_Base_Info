@@ -68,6 +68,24 @@ const elimStyle = computed(() => {
             <span class="l">匹配规则</span>
             <span class="v">{{ matchedRule ? '型号匹配' : '人工判定' }}</span>
           </div>
+          <div class="eb-row" v-if="matchedRule">
+            <span class="l">淘汰批次</span>
+            <span class="v mono">{{ matchedRule.batch }}</span>
+          </div>
+          <div class="eb-row" v-if="matchedRule">
+            <span class="l">命中规则</span>
+            <span class="v rule-inline">
+              <span class="rule-id">{{ matchedRule.ruleId }}</span>
+              <span class="rule-product">{{ matchedRule.product }}</span>
+              <button class="view-btn" @click="$emit('view-rule', matchedRule.ruleId)">
+                <AppIcon name="search" :size="11" /> 查看
+              </button>
+            </span>
+          </div>
+          <div class="eb-row" v-if="matchedRule?.deadline">
+            <span class="l">截止日期</span>
+            <span class="v mono" style="color:var(--eol-red)">{{ matchedRule.deadline }}</span>
+          </div>
           <div class="eb-row">
             <span class="l">判定日期</span>
             <span class="v mono">{{ device.updated?.slice(0, 10) || '—' }}</span>
@@ -75,28 +93,6 @@ const elimStyle = computed(() => {
           <div class="eb-row">
             <span class="l">判定人</span>
             <span class="v">SYSTEM</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ③ 命中规则 -->
-      <div class="eb-block" v-if="matchedRule">
-        <div class="eb-block-title">命中规则 · F_RuleID</div>
-        <div class="eb-rule-header">
-          <span class="rule-id">{{ matchedRule.ruleId }}</span>
-          <span class="rule-product">{{ matchedRule.product }}</span>
-          <button class="view-btn" @click="$emit('view-rule', matchedRule.ruleId)">
-            <AppIcon name="search" :size="11" /> 查看
-          </button>
-        </div>
-        <div class="eb-rows">
-          <div class="eb-row">
-            <span class="l">淘汰批次</span>
-            <span class="v mono">{{ matchedRule.batch }}</span>
-          </div>
-          <div class="eb-row" v-if="matchedRule.deadline">
-            <span class="l">截止日期</span>
-            <span class="v mono" style="color:var(--eol-red)">{{ matchedRule.deadline }}</span>
           </div>
         </div>
       </div>
@@ -173,16 +169,13 @@ const elimStyle = computed(() => {
 .eb-row .v.mono { font-family: "JetBrains Mono", monospace; }
 .eb-row .v.small { font-size: 11px; }
 
-/* 规则行 */
-.eb-rule-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--line);
-}
+/* 规则行内展示 */
+.rule-inline { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .rule-id {
-  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 700;
-  background: var(--brand); color: #fff; padding: 2px 9px; border-radius: 4px; flex-shrink: 0;
+  font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700;
+  background: var(--brand); color: #fff; padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
 }
-.rule-product { font-size: 12px; color: var(--text-1); flex: 1; }
+.rule-product { font-size: 11px; color: var(--text-2); }
 .view-btn {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 10px; font-size: 11px; color: var(--brand);

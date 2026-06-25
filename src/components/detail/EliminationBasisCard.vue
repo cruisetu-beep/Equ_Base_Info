@@ -1,14 +1,17 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
 import DeviceArchive from './DeviceArchive.vue'
+import RuleDetailModal from './RuleDetailModal.vue'
 
 const props = defineProps({
   device: { type: Object, required: true },
   ext:    { type: Object, required: true },
 })
 defineEmits(['view-rule'])
+
+const showRuleModal = ref(false)
 
 const matchedRule = computed(() =>
   props.device.ruleHit ? RULES_LIB_INIT.find(r => r.ruleId === props.device.ruleHit) : null
@@ -77,7 +80,7 @@ const elimStyle = computed(() => {
             <span class="l">命中规则</span>
             <span class="v rule-inline">
               <span class="rule-id">{{ matchedRule.ruleId }}</span>
-              <button class="view-btn" @click="$emit('view-rule', matchedRule.ruleId)">
+              <button class="view-btn" @click="showRuleModal = true">
                 <AppIcon name="search" :size="11" /> 查看
               </button>
             </span>
@@ -101,6 +104,9 @@ const elimStyle = computed(() => {
       <DeviceArchive :device="device" />
 
     </template>
+
+    <!-- 规则详情弹窗 -->
+    <RuleDetailModal :rule="showRuleModal ? matchedRule : null" @close="showRuleModal = false" />
   </div>
 </template>
 

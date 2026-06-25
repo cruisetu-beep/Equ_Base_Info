@@ -1,5 +1,4 @@
 <script setup>
-// ── components/archive/WizardStepBasic.vue ────────────────────────
 import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import NameplateOCR from './NameplateOCR.vue'
@@ -10,42 +9,76 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:data', 'next'])
 
-// 本地表单副本，通过 emit 同步到父层
 const pkg = ref({ ...props.data })
+const errors = ref({})
 
 function set(k, v) {
   pkg.value = { ...pkg.value, [k]: v }
   emit('update:data', { ...pkg.value })
 }
 
+// ── 设备参数（动态行）──────────────────────────────
+const paramRows = ref(
+  (pkg.value.paramGroups?.[0]?.items || []).map(i => ({ ...i }))
+)
+if (paramRows.value.length === 0) {
+  paramRows.value = [{ name: '', value: '' }]
+}
+
+function addParam() {
+  paramRows.value.push({ name: '', value: '' })
+}
+function removeParam(i) {
+  if (paramRows.value.length > 1) paramRows.value.splice(i, 1)
+  syncParams()
+}
+function syncParams() {
+  const items = paramRows.value.filter(r => r.name.trim())
+  const groups = items.length ? [{ group: '设备参数', items }] : []
+  pkg.value = { ...pkg.value, paramGroups: groups }
+  emit('update:data', { ...pkg.value })
+}
+
+// OCR 回填
 function onOcrDone(ocr) {
-  pkg.value = {
-    ...pkg.value,
-    typeK:        ocr.type1,
-    type2:        ocr.type2,
-    model:        ocr.model,
-    manufacturer: ocr.manufacturer,
-    serial_no:    ocr.serial_no,
-    year:         ocr.year,
-    params:       ocr.params,
-    ocrApplied:   true,
+  pkg.value = { ...pkg.value,
+    typeK: ocr.type1, type2: ocr.type2, model: ocr.model,
+    manufacturer: ocr.manufacturer, year: ocr.year, ocrApplied: true,
+  }
+  if (ocr.params?.length) {
+    paramRows.value = ocr.params.map(p => ({ name: p.k, value: p.v }))
+    syncParams()
   }
   emit('update:data', { ...pkg.value })
 }
 
 const typeOptions = DEV_TYPES.slice(0, 8)
 
-const progress = computed(() => {
-  const fields = ['code', 'name', 'typeK', 'model', 'year', 'building', 'manufacturer', 'type2']
-  const filled = fields.filter(k => pkg.value[k]).length
-  return Math.round(filled / fields.length * 100)
-})
+// 必填校验
+function validate() {
+  const e = {}
+  if (!pkg.value.buildingCode) e.buildingCode = '请填写建筑编号'
+  if (!pkg.value.building)     e.building = '请填写建筑名称'
+  if (!pkg.value.code)         e.code = '请填写设备编号'
+  if (!pkg.value.name)         e.name = '请填写设备名称'
+  if (!pkg.value.typeK)        e.typeK = '请选择设备类型'
+  errors.value = e
+  return Object.keys(e).length === 0
+}
+function next() {
+  if (validate()) emit('next')
+}
 
-const errors = ref({})
+// 完成度
+const progress = computed(() => {
+  const required = ['buildingCode', 'building', 'code', 'name', 'typeK']
+  const filled = required.filter(k => pkg.value[k]).length
+  return Math.round(filled / required.length * 100)
+})
 </script>
 
 <template>
-  <div class="step-basic-2 float-in">
+  <div class="step-basic float-in">
 
     <!-- 铭牌识别 -->
     <div class="form-section">
@@ -53,76 +86,62 @@ const errors = ref({})
         <div class="ico"><AppIcon name="scan" :size="18" /></div>
         <div>
           <h3>设备铭牌识别</h3>
-          <div class="desc">上传铭牌照片，AI 视觉识别自动提取型号、参数等关键字段</div>
+          <div class="desc">上传铭牌照片，AI 自动提取型号、参数等关键字段</div>
         </div>
       </div>
       <NameplateOCR @recognized="onOcrDone" />
-
       <div v-if="pkg.ocrApplied" class="ocr-banner">
         <div class="check-orb"><AppIcon name="check" :size="12" /></div>
-        <div style="flex:1">
-          已识别 <strong>{{ (pkg.params || []).length }}</strong> 项铭牌字段并自动写入表单 ·
-          型号 <span class="mono" style="color:var(--text-0)">{{ pkg.model }}</span> ·
-          制造商 <span style="color:var(--text-0)">{{ pkg.manufacturer }}</span>
-        </div>
-        <div class="params-tags">
-          <span v-for="p in (pkg.params || []).slice(0, 3)" :key="p.k" class="param-tag">
-            {{ p.k }}={{ p.v }}<span class="conf">{{ p.conf.toFixed(2) }}</span>
-          </span>
-        </div>
+        <div>已识别铭牌字段并自动写入表单</div>
       </div>
     </div>
 
-    <!-- 基础信息表单 -->
-    <div class="form-section" style="padding-top:0">
+    <!-- 基础信息（5个必填） -->
+    <div class="form-section">
       <div class="section-head">
         <div class="ico"><AppIcon name="cube" :size="18" /></div>
         <div>
-          <h3>设备基础信息</h3>
-          <div class="desc">这些字段将作为知识图谱中"设备实体"的核心属性写入</div>
+          <h3>基础信息</h3>
+          <div class="desc">以下 5 项为必填项</div>
         </div>
       </div>
 
-      <div class="grid-2">
+      <div class="info-grid">
+        <div :class="['field', errors.buildingCode && 'has-err']">
+          <label class="field-label">建筑编号 <span class="req">*</span></label>
+          <input class="input mono" placeholder="例如 BLD-2018"
+                 :value="pkg.buildingCode || ''"
+                 @input="e => set('buildingCode', e.target.value)" />
+          <div v-if="errors.buildingCode" class="err-msg">{{ errors.buildingCode }}</div>
+        </div>
+
+        <div :class="['field', errors.building && 'has-err']">
+          <label class="field-label">建筑名称 <span class="req">*</span></label>
+          <input class="input" placeholder="例如 浦东国际金融中心 T1"
+                 :value="pkg.building || ''"
+                 @input="e => set('building', e.target.value)" />
+          <div v-if="errors.building" class="err-msg">{{ errors.building }}</div>
+        </div>
+
         <div :class="['field', errors.code && 'has-err']">
           <label class="field-label">设备编号 <span class="req">*</span></label>
-          <input class="input mono" placeholder="例如 DEV-MTR-2008-0042"
-                 :value="pkg.code || ''" @input="e => set('code', e.target.value)" />
+          <input class="input mono" placeholder="例如 DEV-MTR-2018-0042"
+                 :value="pkg.code || ''"
+                 @input="e => set('code', e.target.value)" />
           <div v-if="errors.code" class="err-msg">{{ errors.code }}</div>
         </div>
+
         <div :class="['field', errors.name && 'has-err']">
           <label class="field-label">设备名称 <span class="req">*</span></label>
           <input class="input" placeholder="例如 地下泵房 1# 给水泵电机"
-                 :value="pkg.name || ''" @input="e => set('name', e.target.value)" />
+                 :value="pkg.name || ''"
+                 @input="e => set('name', e.target.value)" />
           <div v-if="errors.name" class="err-msg">{{ errors.name }}</div>
         </div>
 
-        <div class="field">
-          <label class="field-label">规格型号</label>
-          <input class="input mono" placeholder="自动填充或手动输入"
-                 :value="pkg.model || ''" @input="e => set('model', e.target.value)" />
-        </div>
-        <div class="field">
-          <label class="field-label">出厂编号</label>
-          <input class="input mono" placeholder="自动填充或手动输入"
-                 :value="pkg.serial_no || ''" @input="e => set('serial_no', e.target.value)" />
-        </div>
-
-        <div class="field">
-          <label class="field-label">制造商</label>
-          <input class="input" placeholder="制造企业名称"
-                 :value="pkg.manufacturer || ''" @input="e => set('manufacturer', e.target.value)" />
-        </div>
-        <div :class="['field', errors.year && 'has-err']">
-          <label class="field-label">投运年份 <span class="req">*</span></label>
-          <input class="input mono" type="number" placeholder="YYYY"
-                 :value="pkg.year || ''" @input="e => set('year', e.target.value)" />
-          <div v-if="errors.year" class="err-msg">{{ errors.year }}</div>
-        </div>
-
-        <!-- 设备一级类型 -->
-        <div class="field" style="grid-column: 1 / -1">
-          <label class="field-label">设备一级类型 <span class="req">*</span></label>
+        <!-- 设备类型（独占一行） -->
+        <div :class="['field', 'field-full', errors.typeK && 'has-err']">
+          <label class="field-label">设备类型 <span class="req">*</span></label>
           <div class="type-grid">
             <div
               v-for="t in typeOptions" :key="t.k"
@@ -137,45 +156,58 @@ const errors = ref({})
         </div>
 
         <div class="field">
-          <label class="field-label">设备二级类型</label>
-          <input class="input" placeholder="例如 中小型三相异步电动机"
-                 :value="pkg.type2 || ''" @input="e => set('type2', e.target.value)" />
-        </div>
-        <div :class="['field', errors.building && 'has-err']">
-          <label class="field-label">所属建筑 <span class="req">*</span></label>
-          <select class="select" :value="pkg.building || ''" @change="e => set('building', e.target.value)">
-            <option value="">请选择</option>
-            <option>浦东国际金融中心 T1</option>
-            <option>环球港购物中心</option>
-            <option>静安希尔顿酒店</option>
-            <option>漕河泾智慧园区 B 座</option>
-            <option>东方医院新院区</option>
-            <option>虹桥商务区南楼</option>
-          </select>
-          <div v-if="errors.building" class="err-msg">{{ errors.building }}</div>
-        </div>
-
-        <div class="field">
-          <label class="field-label">安装位置</label>
-          <input class="input" placeholder="例如 地下二层 B2-机电间"
-                 :value="pkg.location || ''" @input="e => set('location', e.target.value)" />
-        </div>
-        <div class="field">
-          <label class="field-label">资产编号</label>
-          <input class="input mono" placeholder="例如 ASSET-2008-1245"
-                 :value="pkg.asset_no || ''" @input="e => set('asset_no', e.target.value)" />
+          <label class="field-label">设备数量</label>
+          <input class="input mono" type="number" min="1" placeholder="1"
+                 :value="pkg.equCount || ''"
+                 @input="e => set('equCount', e.target.value)" />
         </div>
       </div>
     </div>
 
+    <!-- 设备参数（动态增删） -->
+    <div class="form-section">
+      <div class="section-head">
+        <div class="ico"><AppIcon name="bolt" :size="18" /></div>
+        <div>
+          <h3>设备参数</h3>
+          <div class="desc">根据设备实际情况填写，参数数量不固定</div>
+        </div>
+      </div>
+
+      <div class="param-table">
+        <!-- 表头 -->
+        <div class="param-header">
+          <span class="ph-name">参数名称</span>
+          <span class="ph-value">参数值</span>
+          <span class="ph-del"></span>
+        </div>
+        <!-- 参数行 -->
+        <div v-for="(row, i) in paramRows" :key="i" class="param-row">
+          <input class="input param-input" placeholder="例如 额定功率"
+                 v-model="row.name" @blur="syncParams" />
+          <input class="input param-input mono" placeholder="例如 30 kW"
+                 v-model="row.value" @blur="syncParams" />
+          <button class="del-btn" @click="removeParam(i)" :disabled="paramRows.length === 1">
+            <AppIcon name="close" :size="13" stroke="var(--danger)" />
+          </button>
+        </div>
+      </div>
+
+      <button class="add-param-btn" @click="addParam">
+        <AppIcon name="plus" :size="14" stroke="var(--brand)" />
+        添加参数行
+      </button>
+    </div>
+
+    <!-- 底部操作 -->
     <div class="form-actions">
       <div class="form-progress">
-        <span>录入完成度</span>
+        <span>必填完成度</span>
         <div class="bar"><div class="bar-fill" :style="{ width: `${progress}%` }" /></div>
         <span class="mono">{{ progress }}%</span>
       </div>
       <button class="btn ghost">保存草稿</button>
-      <button class="btn primary" @click="$emit('next')">
+      <button class="btn primary" @click="next">
         下一步 · 照片与文档 <AppIcon name="chevron-right" :size="14" />
       </button>
     </div>
@@ -183,39 +215,107 @@ const errors = ref({})
 </template>
 
 <style scoped>
-.step-basic-2 .form-section { padding: 24px 28px; }
+.form-section { padding: 20px 28px; border-bottom: 1px dashed var(--line); }
+.form-section:last-of-type { border-bottom: none; }
+
+.section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.section-head .ico {
+  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg,#eaf2ff,#e2dcff);
+  display: grid; place-items: center; color: var(--brand);
+}
+.section-head h3 { margin: 0 0 3px; font-size: 14px; color: var(--text-0); }
+.section-head .desc { font-size: 12px; color: var(--text-3); }
+
+/* 基础信息网格 */
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-full { grid-column: 1 / -1; }
+.field-label { font-size: 12px; color: var(--text-2); font-weight: 500; }
+.req { color: var(--danger); margin-left: 2px; }
+.err-msg { font-size: 11px; color: var(--danger); }
+.has-err .input, .has-err .select { border-color: var(--danger); }
+
+/* 设备类型选择 */
 .type-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
 .type-card {
-  padding: 12px 6px; border-radius: 8px;
+  padding: 10px 6px; border-radius: 8px;
   background: #f8faff; border: 1px solid var(--line);
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
   cursor: pointer; transition: all 0.15s;
-  color: var(--text-1); font-size: 11px; user-select: none;
+  color: var(--text-1); font-size: 11px; user-select: none; text-align: center;
 }
 .type-card:hover { border-color: var(--line-strong); background: white; }
 .type-card.active {
-  background: linear-gradient(180deg, #eaf2ff, #f5f9ff);
+  background: linear-gradient(180deg,#eaf2ff,#f5f9ff);
   border-color: var(--brand); color: var(--text-0);
   box-shadow: 0 4px 12px rgba(47,127,255,0.12);
 }
+
+/* 参数表格 */
+.param-table {
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  margin-bottom: 10px;
+}
+.param-header {
+  display: grid; grid-template-columns: 1fr 1fr 36px;
+  padding: 7px 12px; background: #f6f9ff;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+}
+.param-row {
+  display: grid; grid-template-columns: 1fr 1fr 36px;
+  align-items: center; gap: 0;
+  border-bottom: 1px solid var(--line);
+}
+.param-row:last-child { border-bottom: none; }
+.param-row:nth-child(even) { background: #fafbff; }
+.param-input {
+  border: none; border-right: 1px solid var(--line);
+  border-radius: 0; padding: 8px 12px;
+  font-size: 12px; background: transparent;
+  outline: none;
+}
+.param-input:last-of-type { border-right: none; }
+.param-input:focus { background: #f0f6ff; }
+.del-btn {
+  display: grid; place-items: center; width: 36px; height: 100%;
+  border: none; background: transparent; cursor: pointer; opacity: 0.4;
+}
+.del-btn:hover:not(:disabled) { opacity: 1; background: rgba(224,57,79,0.06); }
+.del-btn:disabled { opacity: 0.15; cursor: not-allowed; }
+
+.add-param-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; font-size: 12px; color: var(--brand);
+  background: #f0f6ff; border: 1px dashed var(--brand);
+  border-radius: 6px; cursor: pointer;
+}
+.add-param-btn:hover { background: #e2edff; }
+
+/* OCR 提示 */
 .ocr-banner {
-  margin-top: 14px; padding: 12px 16px;
-  background: linear-gradient(90deg, rgba(43,217,168,0.10), rgba(43,217,168,0.02));
-  border: 1px solid rgba(43,217,168,0.30); border-radius: 8px;
-  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px; padding: 10px 14px;
+  background: rgba(43,217,168,0.08); border: 1px solid rgba(43,217,168,0.3);
+  border-radius: 8px; display: flex; align-items: center; gap: 10px;
   font-size: 12px; color: var(--text-1);
 }
-.ocr-banner .check-orb {
+.check-orb {
   width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(43,217,168,0.20); color: var(--ok);
+  background: rgba(43,217,168,0.2); color: var(--ok);
   display: grid; place-items: center; flex-shrink: 0;
 }
-.params-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.param-tag {
-  font-size: 11px; padding: 3px 9px; border-radius: 4px;
-  background: rgba(43,217,168,0.08); color: var(--ok);
-  border: 1px solid rgba(43,217,168,0.25);
-  font-family: "JetBrains Mono", monospace;
+
+/* 底部 */
+.form-actions {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 28px; background: #f8faff;
+  border-top: 1px solid var(--line);
 }
-.param-tag .conf { color: var(--text-3); margin-left: 4px; font-size: 10px; }
+.form-progress { display: flex; align-items: center; gap: 10px; flex: 1; font-size: 12px; color: var(--text-2); }
+.bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--brand); border-radius: 3px; transition: width 0.3s; }
 </style>

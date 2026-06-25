@@ -49,17 +49,13 @@ const elimColor = computed(() => {
               <AppIcon name="ban" :size="13" :stroke="elimColor.color" />
               {{ rule.actionType }}淘汰
             </span>
-            <span class="elim-product">{{ rule.product }}</span>
+            <span class="elim-product">{{ meta.title || '—' }}</span>
           </div>
 
           <!-- 发布信息 -->
           <div class="section">
             <div class="section-title">发布信息</div>
             <div class="fields">
-              <div class="field full">
-                <span class="l">淘汰目录</span>
-                <span class="v">{{ meta.title || '—' }}</span>
-              </div>
               <div class="field">
                 <span class="l">发布单位</span>
                 <span class="v">{{ meta.authority || '—' }}</span>

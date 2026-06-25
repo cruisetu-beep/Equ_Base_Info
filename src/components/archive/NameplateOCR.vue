@@ -5,38 +5,45 @@ import { OCR_PRESET } from '@/data/devices'
 
 const emit = defineEmits(['recognized'])
 
-// 状态：idle | loading | done
-const phase     = ref('idle')
+// 状态：idle | loading | done | fail
+const phase      = ref('idle')
 const previewUrl = ref('')
-const result    = ref([])
-const fileInput = ref(null)
+const result     = ref([])
+const fileInput  = ref(null)
+
+// 演示时交替成功/失败
+let demoCount = 0
 
 function triggerUpload() { fileInput.value.click() }
 
+function runOcr(shouldFail) {
+  phase.value = 'loading'
+  setTimeout(() => {
+    if (shouldFail) {
+      phase.value = 'fail'
+    } else {
+      result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
+      phase.value = 'done'
+    }
+  }, 1800)
+}
+
 function handleFile(file) {
   if (!file) return
-  // 生成预览
   const reader = new FileReader()
   reader.onload = e => { previewUrl.value = e.target.result }
   reader.readAsDataURL(file)
-  // 开始 mock loading
-  phase.value = 'loading'
-  setTimeout(() => {
-    result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
-    phase.value = 'done'
-  }, 1800)
+  runOcr(false) // 真实上传默认走成功流程
 }
 
 function onFileChange(e) { handleFile(e.target.files[0]) }
 function onDrop(e) { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }
 
 function useDemo() {
+  demoCount++
   previewUrl.value = ''
-  phase.value = 'loading'
-  setTimeout(() => {
-    result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
-    phase.value = 'done'
-  }, 1800)
+  const fail = demoCount % 2 === 0 // 偶数次失败，奇数次成功
+  runOcr(fail)
 }
 
 function reset() {
@@ -50,9 +57,7 @@ function importParams() {
     ...OCR_PRESET,
     params: result.value.map(r => ({ k: r.name, v: r.value, conf: 0.96 })),
   })
-  phase.value = 'idle'
-  previewUrl.value = ''
-  result.value = []
+  reset()
 }
 </script>
 
@@ -86,7 +91,30 @@ function importParams() {
       </div>
     </div>
 
-    <!-- ③ 识别完成 -->
+    <!-- ③ 识别失败 // [TODO] 接入真实接口后此状态由后端返回错误触发 -->
+    <div v-else-if="phase === 'fail'" class="ocr-fail">
+      <img v-if="previewUrl" :src="previewUrl" class="ocr-thumb" />
+      <div v-else class="ocr-thumb ocr-thumb-demo">
+        <AppIcon name="scan" :size="24" stroke="#8a9bbf" />
+      </div>
+      <div class="ocr-fail-info">
+        <div class="ocr-fail-head">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7.5" stroke="#e0394f"/>
+            <path d="M8 4v5M8 11v1" stroke="#e0394f" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span>识别失败</span>
+          <span class="fail-tag">// [MOCK: 演示失败状态]</span>
+        </div>
+        <div class="fail-reason">无法从图片中提取有效铭牌信息，可能原因：图片模糊、光线不足、铭牌遮挡或格式不支持。</div>
+        <div class="fail-actions">
+          <button class="btn primary btn-sm" @click="reset">重新上传</button>
+          <button class="btn ghost btn-sm" @click="reset">手动录入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ 识别完成 -->
     <div v-else-if="phase === 'done'" class="ocr-done">
       <!-- 左：缩略图 -->
       <img v-if="previewUrl" :src="previewUrl" class="ocr-thumb" />
@@ -170,6 +198,26 @@ function importParams() {
   animation: spin 0.8s linear infinite; flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* 识别失败 */
+.ocr-fail {
+  display: flex; gap: 14px;
+  border: 1px solid rgba(224,57,79,0.3); border-radius: 8px;
+  background: rgba(224,57,79,0.04); padding: 14px;
+}
+.ocr-fail-info { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.ocr-fail-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #e0394f; font-weight: 600;
+}
+.fail-tag {
+  font-size: 10px; font-family: "JetBrains Mono", monospace;
+  color: var(--text-3); font-weight: 400; margin-left: 4px;
+}
+.fail-reason {
+  font-size: 12px; color: var(--text-2); line-height: 1.6;
+}
+.fail-actions { display: flex; gap: 8px; }
 
 /* 识别完成 */
 .ocr-done {

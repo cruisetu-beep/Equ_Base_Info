@@ -87,7 +87,7 @@ const elimColor = computed(() => {
                 <span class="l">设备分类详细</span>
                 <span class="v">{{ rule.subType || '—' }}</span>
               </div>
-              <div class="field full" v-if="rule.modelPattern?.length">
+              <div class="field" v-if="rule.modelPattern?.length">
                 <span class="l">设备系列</span>
                 <span class="v mono">{{ rule.modelPattern.join(' / ') }}</span>
               </div>
@@ -182,16 +182,14 @@ const elimColor = computed(() => {
   letter-spacing: 0.05em; text-transform: uppercase;
   padding: 6px 14px; background: #f6f9ff; border-bottom: 1px solid var(--line);
 }
-.fields { display: grid; grid-template-columns: 1fr 1fr; }
+.fields { display: grid; grid-template-columns: 1fr 1fr 1fr; }
 .field {
   display: flex; flex-direction: column; gap: 3px;
   padding: 9px 14px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
   background: #fff;
 }
-.field:nth-child(even) { border-right: none; background: #fafbff; }
-.field:last-child, .field:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+.field:nth-child(3n) { border-right: none; background: #fafbff; }
 .field.full { grid-column: 1 / -1; border-right: none; }
-.field.full:last-child { border-bottom: none; }
 .field .l { font-size: 10px; color: var(--text-3); }
 .field .v { font-size: 12px; color: var(--text-0); line-height: 1.5; white-space: pre-line; }
 .field .v.mono { font-family: "JetBrains Mono", monospace; }

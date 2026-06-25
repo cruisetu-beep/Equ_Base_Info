@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import NameplateOCR from './NameplateOCR.vue'
-import { DEV_TYPES } from '@/data/devices'
+import { DEV_TYPES, BUILDING_LIST } from '@/data/devices'
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -15,6 +15,37 @@ const errors = ref({})
 function set(k, v) {
   pkg.value = { ...pkg.value, [k]: v }
   emit('update:data', { ...pkg.value })
+}
+
+// ── 建筑搜索下拉 ──────────────────────────────────
+const buildingKeyword = ref(pkg.value.building || '')
+const buildingDropdown = ref(false)
+
+const filteredBuildings = computed(() =>
+  BUILDING_LIST.filter(b =>
+    b.name.includes(buildingKeyword.value) || b.code.includes(buildingKeyword.value)
+  )
+)
+
+function selectBuilding(b) {
+  buildingKeyword.value = b.name
+  pkg.value = { ...pkg.value, building: b.name, buildingCode: b.code }
+  emit('update:data', { ...pkg.value })
+  buildingDropdown.value = false
+  errors.value = { ...errors.value, building: '', buildingCode: '' }
+}
+
+function onBuildingInput(e) {
+  buildingKeyword.value = e.target.value
+  buildingDropdown.value = true
+  // 清空已选（因为手动输入了）
+  pkg.value = { ...pkg.value, building: '', buildingCode: '' }
+  emit('update:data', { ...pkg.value })
+}
+
+function onBuildingBlur() {
+  // 延迟关闭，让点击选项有时间触发
+  setTimeout(() => { buildingDropdown.value = false }, 160)
 }
 
 // ── 设备参数（动态行）──────────────────────────────
@@ -107,20 +138,38 @@ const progress = computed(() => {
       </div>
 
       <div class="info-grid">
-        <div :class="['field', errors.buildingCode && 'has-err']">
-          <label class="field-label">建筑编号 <span class="req">*</span></label>
-          <input class="input mono" placeholder="例如 BLD-2018"
-                 :value="pkg.buildingCode || ''"
-                 @input="e => set('buildingCode', e.target.value)" />
-          <div v-if="errors.buildingCode" class="err-msg">{{ errors.buildingCode }}</div>
-        </div>
-
         <div :class="['field', errors.building && 'has-err']">
           <label class="field-label">建筑名称 <span class="req">*</span></label>
-          <input class="input" placeholder="例如 浦东国际金融中心 T1"
-                 :value="pkg.building || ''"
-                 @input="e => set('building', e.target.value)" />
+          <div class="building-wrap">
+            <input class="input" placeholder="输入关键字搜索..."
+                   :value="buildingKeyword"
+                   @input="onBuildingInput"
+                   @focus="buildingDropdown = true"
+                   @blur="onBuildingBlur" />
+            <AppIcon name="chevron-down" :size="14" stroke="var(--text-3)" class="dd-arrow" />
+            <div v-if="buildingDropdown && filteredBuildings.length" class="building-dropdown">
+              <div
+                v-for="b in filteredBuildings" :key="b.code"
+                class="building-option"
+                @mousedown.prevent="selectBuilding(b)"
+              >
+                <span class="b-name">{{ b.name }}</span>
+                <span class="b-code mono">{{ b.code }}</span>
+              </div>
+            </div>
+            <div v-if="buildingDropdown && filteredBuildings.length === 0" class="building-dropdown">
+              <div class="building-empty">无匹配建筑</div>
+            </div>
+          </div>
           <div v-if="errors.building" class="err-msg">{{ errors.building }}</div>
+        </div>
+
+        <div :class="['field', errors.buildingCode && 'has-err']">
+          <label class="field-label">建筑编号 <span class="req">*</span></label>
+          <input class="input mono" placeholder="选择建筑后自动填写"
+                 :value="pkg.buildingCode || ''" readonly
+                 style="background:#f8faff; color:var(--text-2); cursor:not-allowed" />
+          <div v-if="errors.buildingCode" class="err-msg">{{ errors.buildingCode }}</div>
         </div>
 
         <div :class="['field', errors.code && 'has-err']">
@@ -309,7 +358,26 @@ const progress = computed(() => {
   display: grid; place-items: center; flex-shrink: 0;
 }
 
-/* 底部 */
+/* 建筑搜索下拉 */
+.building-wrap { position: relative; }
+.building-wrap .input { padding-right: 32px; }
+.dd-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.building-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100;
+  background: #fff; border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10); overflow: hidden; max-height: 200px; overflow-y: auto;
+}
+.building-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; cursor: pointer; gap: 12px;
+  transition: background 0.1s;
+}
+.building-option:hover { background: #f0f6ff; }
+.b-name { font-size: 13px; color: var(--text-0); }
+.b-code { font-size: 11px; color: var(--text-3); }
+.building-empty { padding: 12px 14px; font-size: 12px; color: var(--text-3); text-align: center; }
+
+
 .form-actions {
   display: flex; align-items: center; gap: 14px;
   padding: 16px 28px; background: #f8faff;

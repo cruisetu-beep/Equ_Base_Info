@@ -499,3 +499,13 @@ export function getDeviceDetailExt(device) {
     energyEfficiencyGap: device.status === "phaseout" || device.status === "low_eff" ? (8 + (seed % 25)).toFixed(1) : "0.0",
   }
 }
+
+// ── 建筑列表（含编号，用于录入下拉）────────────────────────────────
+export const BUILDING_LIST = [
+  { code: 'BLD-2018', name: '浦东国际金融中心 T1' },
+  { code: 'BLD-2014', name: '环球港购物中心' },
+  { code: 'BLD-2009', name: '东方医院新院区' },
+  { code: 'BLD-2020', name: '漕河泾智慧园区 B 座' },
+  { code: 'BLD-2013', name: '静安希尔顿酒店' },
+  { code: 'BLD-2021', name: '虹桥商务区南楼' },
+]

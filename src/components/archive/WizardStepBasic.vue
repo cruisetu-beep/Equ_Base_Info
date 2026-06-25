@@ -155,7 +155,9 @@ const progress = computed(() => {
                    @focus="buildingDropdown = true"
                    @blur="onBuildingBlur" />
             <button v-if="pkg.building" class="b-clear" @mousedown.prevent="clearBuilding">
-              <AppIcon name="close" :size="12" stroke="var(--text-3)" />
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round">
+                <path d="M1 1l8 8M9 1L1 9"/>
+              </svg>
             </button>
             <AppIcon v-else name="chevron-down" :size="14" stroke="var(--text-3)" class="dd-arrow" />
             <div v-if="buildingDropdown && filteredBuildings.length" class="building-dropdown">

@@ -60,9 +60,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="btn ghost"><AppIcon name="download" :size="14" /> 导出报告</button>
-        <button class="btn ghost" @click="$emit('rejudge')"><AppIcon name="zap" :size="14" /> 重新判定</button>
-        <button class="btn primary" @click="$emit('edit')"><AppIcon name="edit" :size="14" /> 编辑设备</button>
+        <button class="btn primary" @click="$emit('edit')"><AppIcon name="ban" :size="14" /> 淘汰设备判定</button>
       </div>
     </div>
 
@@ -112,7 +110,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
       <!-- 右栏：淘汰判定详情 -->
       <div class="dd-side">
-        <EliminationBasisCard :device="device" :ext="ext" @view-rule="id => $emit('view-rule', id)" />
+        <EliminationBasisCard :device="device" :ext="ext" />
       </div>
     </div>
   </div>

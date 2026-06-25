@@ -253,8 +253,7 @@
 .form-section { padding: 28px 32px; }
 .section-head {
   display: flex; align-items: center; gap: 10px;
-  padding-bottom: 16px; margin-bottom: 24px;
-  border-bottom: 1px dashed var(--line);
+  margin-bottom: 10px;
 }
 .section-head .ico { width: 32px; height: 32px; display: grid; place-items: center; background: linear-gradient(135deg, #e8f0ff, #d8e4fb); border-radius: 8px; color: var(--brand); flex-shrink: 0; }
 .section-head h3 { font-size: 15px; font-weight: 600; margin: 0; color: var(--text-0); }

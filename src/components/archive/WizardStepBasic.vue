@@ -246,7 +246,9 @@ const progress = computed(() => {
           <input class="input param-input mono" placeholder="例如 30 kW"
                  v-model="row.value" @blur="syncParams" />
           <button class="del-btn" @click="removeParam(i)" :disabled="paramRows.length === 1">
-            <AppIcon name="close" :size="13" stroke="var(--danger)" />
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round">
+              <path d="M1 1l10 10M11 1L1 11"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -347,9 +349,10 @@ const progress = computed(() => {
 .param-input:focus { background: #f0f6ff; }
 .del-btn {
   display: grid; place-items: center; width: 36px; height: 100%;
-  border: none; background: transparent; cursor: pointer; opacity: 0.4;
+  border: none; background: transparent; cursor: pointer; opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
 }
-.del-btn:hover:not(:disabled) { opacity: 1; background: rgba(224,57,79,0.06); }
+.del-btn:hover:not(:disabled) { opacity: 1; background: rgba(224,57,79,0.08); }
 .del-btn:disabled { opacity: 0.15; cursor: not-allowed; }
 
 .add-param-btn {

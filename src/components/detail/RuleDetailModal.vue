@@ -178,7 +178,7 @@ const elimColor = computed(() => {
 /* 分组 */
 .section { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .section-title {
-  font-size: 11px; font-weight: 600; color: var(--text-2);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
   letter-spacing: 0.05em; text-transform: uppercase;
   padding: 6px 14px; background: #f6f9ff; border-bottom: 1px solid var(--line);
 }
@@ -193,11 +193,11 @@ const elimColor = computed(() => {
 .field .l { font-size: 10px; color: var(--text-3); }
 .field .v { font-size: 12px; color: var(--text-0); line-height: 1.5; white-space: pre-line; }
 .field .v.mono { font-family: "JetBrains Mono", monospace; }
-.field .v.small { font-size: 11px; }
+.field .v.small { font-size: 12px; }
 .field .v.bold { font-weight: 700; }
 .field.model-list { flex-direction: column; gap: 6px; }
 .model-list-body {
-  font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-0);
+  font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--text-0);
   white-space: pre-line; line-height: 1.8;
   max-height: 120px; overflow-y: auto;
 }

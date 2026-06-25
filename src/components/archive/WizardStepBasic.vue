@@ -379,11 +379,12 @@ const progress = computed(() => {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100;
   background: #fff; border: 1px solid var(--line-strong); border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.10); overflow: hidden; max-height: 200px; overflow-y: auto;
+  cursor: pointer;
 }
 .building-option {
   display: flex; align-items: center; justify-content: space-between;
   padding: 9px 14px; cursor: pointer; gap: 12px;
-  transition: background 0.1s;
+  transition: background 0.1s; user-select: none;
 }
 .building-option:hover { background: #f0f6ff; }
 .b-name { font-size: 13px; color: var(--text-0); }

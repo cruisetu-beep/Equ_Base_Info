@@ -45,11 +45,7 @@ const elimColor = computed(() => {
 
           <!-- 淘汰类型横幅 -->
           <div class="elim-banner" :style="{ background: elimColor.bg, borderColor: elimColor.border }">
-            <span class="elim-type" :style="{ color: elimColor.color }">
-              <AppIcon name="ban" :size="13" :stroke="elimColor.color" />
-              {{ rule.actionType }}淘汰
-            </span>
-            <span class="elim-product">{{ meta.title || '—' }}</span>
+            <span class="elim-title" :style="{ color: elimColor.color }">{{ meta.title || '—' }}</span>
           </div>
 
           <!-- 发布信息 -->
@@ -172,6 +168,7 @@ const elimColor = computed(() => {
   display: flex; align-items: center; gap: 14px;
   border: 1px solid; border-radius: 8px; padding: 10px 16px;
 }
+.elim-title { font-size: 14px; font-weight: 700; line-height: 1.5; }
 .elim-type {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 13px; font-weight: 700; flex-shrink: 0;

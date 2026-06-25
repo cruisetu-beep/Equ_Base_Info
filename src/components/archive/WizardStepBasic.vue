@@ -296,7 +296,7 @@ const progress = computed(() => {
 }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-full { grid-column: 1 / -1; }
-.field-label { font-size: 12px; color: var(--text-2); font-weight: 500; }
+.field-label { font-size: 14px; color: var(--text-2); font-weight: 500; }
 .req { color: var(--danger); margin-left: 2px; }
 .err-msg { font-size: 11px; color: var(--danger); }
 .has-err .input, .has-err .select { border-color: var(--danger); }

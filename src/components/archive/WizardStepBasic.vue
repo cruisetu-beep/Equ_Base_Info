@@ -144,7 +144,8 @@ const progress = computed(() => {
         </div>
       </div>
 
-      <div class="info-grid">
+      <div class="section-content">
+        <div class="info-grid">
         <div :class="['field', errors.building && 'has-err']">
           <label class="field-label">建筑名称 <span class="req">*</span></label>
           <div class="building-wrap">
@@ -217,6 +218,7 @@ const progress = computed(() => {
                  @input="e => set('equCount', e.target.value)" />
         </div>
       </div>
+      </div>
     </div>
 
     <!-- 设备参数（动态增删） -->
@@ -229,7 +231,8 @@ const progress = computed(() => {
         </div>
       </div>
 
-      <div class="param-table">
+      <div class="section-content">
+        <div class="param-table">
         <!-- 表头 -->
         <div class="param-header">
           <span class="ph-name">参数名称</span>
@@ -252,6 +255,7 @@ const progress = computed(() => {
         <AppIcon name="plus" :size="14" stroke="var(--brand)" />
         添加参数行
       </button>
+      </div>
     </div>
 
     <!-- 底部操作 -->
@@ -272,6 +276,11 @@ const progress = computed(() => {
 <style scoped>
 .form-section { padding: 20px 28px; border-bottom: 1px dashed var(--line); }
 .form-section:last-of-type { border-bottom: none; }
+
+.section-content {
+  border: 1px solid var(--line); border-radius: 10px;
+  overflow: hidden; padding: 16px;
+}
 
 .section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .section-head .ico {

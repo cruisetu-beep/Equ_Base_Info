@@ -112,7 +112,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 
       <!-- 右栏：淘汰判定详情 -->
       <div class="dd-side">
-        <EliminationBasisCard :device="device" :ext="ext" @view-rule="id => $emit('view-rule', id)" />
+        <EliminationBasisCard :device="device" :ext="ext" />
       </div>
     </div>
   </div>

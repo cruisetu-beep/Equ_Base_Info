@@ -9,8 +9,6 @@ const props = defineProps({
   device: { type: Object, required: true },
   ext:    { type: Object, required: true },
 })
-defineEmits(['view-rule'])
-
 const showRuleModal = ref(false)
 
 const matchedRule = computed(() =>

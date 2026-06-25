@@ -201,20 +201,13 @@ const progress = computed(() => {
           <div v-if="errors.name" class="err-msg">{{ errors.name }}</div>
         </div>
 
-        <!-- 设备类型（独占一行） -->
-        <div :class="['field', 'field-full', errors.typeK && 'has-err']">
+        <div :class="['field', errors.typeK && 'has-err']">
           <label class="field-label">设备类型 <span class="req">*</span></label>
-          <div class="type-grid">
-            <div
-              v-for="t in typeOptions" :key="t.k"
-              :class="['type-card', pkg.typeK === t.k && 'active']"
-              @click="set('typeK', t.k)"
-            >
-              <AppIcon :name="t.icon" :size="20" :stroke="pkg.typeK === t.k ? 'var(--brand)' : t.color" />
-              <div>{{ t.label }}</div>
-            </div>
-          </div>
-          <div v-if="errors.typeK" class="err-msg" style="margin-top:8px">{{ errors.typeK }}</div>
+          <select class="input" :value="pkg.typeK || ''" @change="e => set('typeK', e.target.value)">
+            <option value="">请选择设备类型</option>
+            <option v-for="t in typeOptions" :key="t.k" :value="t.k">{{ t.label }}</option>
+          </select>
+          <div v-if="errors.typeK" class="err-msg">{{ errors.typeK }}</div>
         </div>
 
         <div class="field">

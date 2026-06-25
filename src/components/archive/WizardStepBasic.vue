@@ -43,6 +43,13 @@ function onBuildingInput(e) {
   emit('update:data', { ...pkg.value })
 }
 
+function clearBuilding() {
+  buildingKeyword.value = ''
+  buildingDropdown.value = true
+  pkg.value = { ...pkg.value, building: '', buildingCode: '' }
+  emit('update:data', { ...pkg.value })
+}
+
 function onBuildingBlur() {
   // 延迟关闭，让点击选项有时间触发
   setTimeout(() => { buildingDropdown.value = false }, 160)
@@ -143,10 +150,14 @@ const progress = computed(() => {
           <div class="building-wrap">
             <input class="input" placeholder="输入关键字搜索..."
                    :value="buildingKeyword"
+                   :readonly="!!pkg.building"
                    @input="onBuildingInput"
                    @focus="buildingDropdown = true"
                    @blur="onBuildingBlur" />
-            <AppIcon name="chevron-down" :size="14" stroke="var(--text-3)" class="dd-arrow" />
+            <button v-if="pkg.building" class="b-clear" @mousedown.prevent="clearBuilding">
+              <AppIcon name="close" :size="12" stroke="var(--text-3)" />
+            </button>
+            <AppIcon v-else name="chevron-down" :size="14" stroke="var(--text-3)" class="dd-arrow" />
             <div v-if="buildingDropdown && filteredBuildings.length" class="building-dropdown">
               <div
                 v-for="b in filteredBuildings" :key="b.code"
@@ -157,7 +168,7 @@ const progress = computed(() => {
                 <span class="b-code mono">{{ b.code }}</span>
               </div>
             </div>
-            <div v-if="buildingDropdown && filteredBuildings.length === 0" class="building-dropdown">
+            <div v-if="buildingDropdown && !pkg.building && filteredBuildings.length === 0" class="building-dropdown">
               <div class="building-empty">无匹配建筑</div>
             </div>
           </div>
@@ -375,7 +386,13 @@ const progress = computed(() => {
 .building-option:hover { background: #f0f6ff; }
 .b-name { font-size: 13px; color: var(--text-0); }
 .b-code { font-size: 11px; color: var(--text-3); }
-.building-empty { padding: 12px 14px; font-size: 12px; color: var(--text-3); text-align: center; }
+.b-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 50%; border: none;
+  background: var(--line-strong); display: grid; place-items: center;
+  cursor: pointer; padding: 0;
+}
+.b-clear:hover { background: #ccd4e0; }
 
 
 .form-actions {

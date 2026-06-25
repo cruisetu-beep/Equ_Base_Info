@@ -1,300 +1,207 @@
 <script setup>
-// ── components/archive/NameplateOCR.vue ───────────────────────────
-import { ref, watch, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { OCR_PRESET } from '@/data/devices'
-import { tsNow } from '@/utils/logHelpers'
 
 const emit = defineEmits(['recognized'])
 
-const phase     = ref('idle')      // idle | scanning | recognized
-const scanProg  = ref(0)
-const hitFields = ref([])
-const logs      = ref([])
+// 状态：idle | loading | done
+const phase     = ref('idle')
+const previewUrl = ref('')
+const result    = ref([])
 const fileInput = ref(null)
 
-let scanTimer = null
-let fieldTimer = null
+function triggerUpload() { fileInput.value.click() }
 
-function startScan() {
-  phase.value    = 'scanning'
-  scanProg.value = 0
-  hitFields.value = []
-  logs.value = [{ ts: tsNow(), lv: 'info', msg: '加载图像 → 预处理（去噪 / 矫正 / 二值化）' }]
-
-  clearInterval(scanTimer)
-  scanTimer = setInterval(() => {
-    if (scanProg.value >= 100) {
-      clearInterval(scanTimer)
-      return
-    }
-    scanProg.value = Math.min(100, scanProg.value + 2)
-  }, 36)
+function handleFile(file) {
+  if (!file) return
+  // 生成预览
+  const reader = new FileReader()
+  reader.onload = e => { previewUrl.value = e.target.result }
+  reader.readAsDataURL(file)
+  // 开始 mock loading
+  phase.value = 'loading'
+  setTimeout(() => {
+    result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
+    phase.value = 'done'
+  }, 1800)
 }
 
-// 字段命中检测
-watch(scanProg, (p) => {
-  if (phase.value !== 'scanning') return
+function onFileChange(e) { handleFile(e.target.files[0]) }
+function onDrop(e) { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }
 
-  OCR_PRESET.fields.forEach(f => {
-    const trigger = f.y + f.h * 0.5
-    if (p >= trigger && !hitFields.value.includes(f.key)) {
-      hitFields.value = [...hitFields.value, f.key]
-      logs.value = [...logs.value, {
-        ts: tsNow(), lv: 'ok',
-        msg: `识别字段 ${f.label}="${f.value}"  conf=${(0.92 + Math.random() * 0.07).toFixed(2)}`,
-      }]
-    }
+function useDemo() {
+  previewUrl.value = ''
+  phase.value = 'loading'
+  setTimeout(() => {
+    result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
+    phase.value = 'done'
+  }, 1800)
+}
+
+function reset() {
+  phase.value = 'idle'
+  previewUrl.value = ''
+  result.value = []
+}
+
+function importParams() {
+  emit('recognized', {
+    ...OCR_PRESET,
+    params: result.value.map(r => ({ k: r.name, v: r.value, conf: 0.96 })),
   })
-
-  if (p >= 100 && phase.value === 'scanning') {
-    setTimeout(() => {
-      phase.value = 'recognized'
-      logs.value = [...logs.value,
-        { ts: tsNow(), lv: 'info', msg: `生成结构化字段 → 写入表单（${OCR_PRESET.fields.length} 项）` },
-        { ts: tsNow(), lv: 'ok',   msg: `完成 · 平均置信度 0.96` },
-      ]
-      emit('recognized', OCR_PRESET)
-    }, 400)
-  }
-})
-
-function handleFile() { startScan() }
-
-function onDrop(e) {
-  e.preventDefault()
-  const f = e.dataTransfer.files[0]
-  if (f) handleFile()
+  phase.value = 'idle'
+  previewUrl.value = ''
+  result.value = []
 }
-
-onUnmounted(() => {
-  clearInterval(scanTimer)
-  clearInterval(fieldTimer)
-})
 </script>
 
 <template>
-  <div class="ocr-card">
-    <!-- 左：铭牌扫描舞台 -->
-    <div class="ocr-stage">
-      <!-- 空态 -->
-      <template v-if="phase === 'idle'">
-        <div
-          class="ocr-empty"
-          @click="fileInput.click()"
-          @dragover.prevent
-          @drop="onDrop"
-        >
-          <div class="ic"><AppIcon name="scan" :size="28" /></div>
-          <div class="h">上传设备铭牌照片</div>
-          <div class="s">支持 JPG / PNG · 拖拽或点击选择 · AI 自动识别字段并填写表单</div>
-          <button
-            class="ocr-mini-btn"
-            style="margin-top:8px"
-            @click.stop="startScan"
-          >
-            <AppIcon name="sparkles" :size="11" /> 使用示例铭牌演示
-          </button>
-        </div>
-        <input ref="fileInput" type="file" accept="image/*" style="display:none"
-               @change="e => e.target.files[0] && handleFile()" />
-      </template>
+  <div class="ocr-wrap">
 
-      <!-- 扫描中 / 识别完成 -->
-      <template v-else>
-        <!-- 模拟铭牌 -->
-        <div class="nameplate-mock">
-          <div class="brand">SHANGHAI ELECTRIC MACHINE CO., LTD.</div>
-          <div class="model-line">Y2 - 180M - 4</div>
-          <div class="grid">
-            <div class="row"><span class="lbl">No.</span><span class="val">SH-2008-04572</span></div>
-            <div class="row"><span class="lbl">Standard</span><span class="val">GB18613</span></div>
-            <div class="row"><span class="lbl">Year</span><span class="val">2008</span></div>
-            <div class="row"><span class="lbl">P</span><span class="val">22 kW</span></div>
-            <div class="row"><span class="lbl">U</span><span class="val">380 V</span></div>
-            <div class="row"><span class="lbl">f</span><span class="val">50 Hz</span></div>
-            <div class="row"><span class="lbl">n</span><span class="val">1470 r/min</span></div>
-            <div class="row"><span class="lbl">IP</span><span class="val">IP54</span></div>
-            <div class="row"><span class="lbl">Ins.</span><span class="val">F</span></div>
-          </div>
-          <div class="footer">
-            <span>EFF. 88.5%</span><span>WT. 178 kg</span><span>S1</span>
-          </div>
-        </div>
-
-        <!-- 字段命中框 -->
-        <div
-          v-for="f in OCR_PRESET.fields.filter(f => hitFields.includes(f.key))"
-          :key="f.key"
-          :class="['hit-box', phase === 'recognized' && 'done']"
-          :style="{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }"
-        >
-          <span class="tag">{{ f.label }}: {{ f.value }}</span>
-        </div>
-
-        <!-- 扫描线 -->
-        <div v-if="phase === 'scanning'" class="scan-bar" :style="{ top: `${scanProg - 30}%` }" />
-
-        <!-- 底部进度条 -->
-        <div class="ocr-bottom-bar">
-          <span class="label">{{ phase === 'scanning' ? 'OCR · 识别中' : 'OCR · 完成' }}</span>
-          <div class="progress-bar"><div class="progress-fill" :style="{ width: `${scanProg}%` }" /></div>
-          <span>{{ scanProg }}%</span>
-          <button v-if="phase === 'recognized'" class="ocr-mini-btn" @click="startScan">
-            <AppIcon name="scan" :size="10" /> 重新识别
-          </button>
-        </div>
-      </template>
+    <!-- ① 空态：小上传区 -->
+    <div v-if="phase === 'idle'"
+      class="ocr-idle"
+      @click="triggerUpload"
+      @dragover.prevent
+      @drop="onDrop"
+    >
+      <div class="ocr-idle-icon">
+        <AppIcon name="scan" :size="20" stroke="var(--brand)" />
+      </div>
+      <span class="ocr-idle-text">点击或拖拽上传铭牌照片</span>
+      <button class="ocr-demo-btn" @click.stop="useDemo">使用演示数据</button>
+      <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="onFileChange" />
     </div>
 
-    <!-- 右：AI 日志 -->
-    <div class="ocr-log">
-      <div class="ocr-log-head">
-        <div class="ai-orb" style="width:24px;height:24px" />
-        <div class="h">AI · 视觉识别</div>
-        <span class="sub mono">VLM-Nameplate v2</span>
+    <!-- ② 识别中 -->
+    <div v-else-if="phase === 'loading'" class="ocr-loading">
+      <img v-if="previewUrl" :src="previewUrl" class="ocr-thumb" />
+      <div v-else class="ocr-thumb ocr-thumb-demo">
+        <AppIcon name="scan" :size="24" stroke="#8a9bbf" />
       </div>
-      <div class="ocr-log-body">
-        <span v-if="logs.length === 0" style="color:#9db3d6;position:relative;z-index:1">等待图像输入…</span>
-        <span v-for="(l, i) in logs" :key="i" class="ll">
-          <span class="ts">{{ l.ts }}</span>
-          <span :class="`lv-${l.lv}`">[{{ l.lv.toUpperCase() }}]</span> {{ l.msg }}
-        </span>
+      <div class="ocr-loading-info">
+        <div class="ocr-spinner"></div>
+        <span>AI 识别中，请稍候…</span>
       </div>
     </div>
+
+    <!-- ③ 识别完成 -->
+    <div v-else-if="phase === 'done'" class="ocr-done">
+      <!-- 左：缩略图 -->
+      <img v-if="previewUrl" :src="previewUrl" class="ocr-thumb" />
+      <div v-else class="ocr-thumb ocr-thumb-demo">
+        <AppIcon name="scan" :size="24" stroke="#8a9bbf" />
+      </div>
+
+      <!-- 右：识别结果 -->
+      <div class="ocr-result">
+        <div class="ocr-result-head">
+          <AppIcon name="check" :size="14" stroke="var(--ok)" />
+          <span>识别完成，共 {{ result.length }} 项参数</span>
+          <button class="ocr-reset-btn" @click="reset">重新上传</button>
+        </div>
+        <div class="ocr-result-list">
+          <div v-for="(r, i) in result" :key="i" class="ocr-result-row">
+            <span class="r-name">{{ r.name }}</span>
+            <span class="r-val mono">{{ r.value }}</span>
+          </div>
+        </div>
+        <div class="ocr-result-actions">
+          <span class="ocr-hint">是否将识别到的参数导入设备参数区域？</span>
+          <button class="btn primary btn-sm" @click="importParams">导入参数</button>
+          <button class="btn ghost btn-sm" @click="reset">忽略</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <style scoped>
-.ocr-card { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
-.ocr-stage {
-  background: #243650;
-  border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
-  aspect-ratio: 16/9; position: relative; overflow: hidden;
-}
-.ocr-stage::before {
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(77,201,255,0.06), transparent 70%);
-  pointer-events: none; z-index: 0;
-}
-.ocr-stage::after {
-  content: ""; position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(77,201,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(77,201,255,0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none; z-index: 0;
-}
-.ocr-empty {
-  position: absolute; inset: 12px; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 8px; color: #8da3c8; cursor: pointer;
-  border: 2px dashed rgba(77,201,255,0.25); border-radius: 10px;
-  transition: all 0.2s;
-}
-.ocr-empty:hover { border-color: rgba(77,201,255,0.5); background: rgba(47,127,255,0.04); }
-.ocr-empty .h { font-size: 14px; color: #c5d3ed; font-weight: 500; }
-.ocr-empty .s { font-size: 11px; color: #6a7da3; }
-.ocr-empty .ic { width: 56px; height: 56px; border-radius: 50%; background: rgba(77,201,255,0.12); display:grid; place-items:center; color: #4dc9ff; margin-bottom: 6px; }
+.ocr-wrap { width: 100%; }
 
-.nameplate-mock {
-  position: absolute; inset: 14px;
-  background: linear-gradient(135deg, #d4ad57 0%, #b59041 50%, #d4ad57 100%);
-  border: 4px double rgba(0,0,0,0.5); border-radius: 6px;
-  padding: 14px 22px;
-  color: #2a1f0c; font-family: "JetBrains Mono", monospace;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.2), 0 4px 14px rgba(0,0,0,0.4);
-  display: flex; flex-direction: column;
+/* 空态 */
+.ocr-idle {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; border: 1.5px dashed var(--line-strong);
+  border-radius: 8px; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fafbff;
 }
-.nameplate-mock::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(90deg, transparent 0, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+.ocr-idle:hover { border-color: var(--brand); background: #f0f6ff; }
+.ocr-idle-icon {
+  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+  background: #eaf2ff; display: grid; place-items: center;
 }
-.nameplate-mock .brand { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-align:center; padding-bottom:4px; border-bottom:1px solid rgba(0,0,0,0.3); }
-.nameplate-mock .model-line { font-size: 18px; font-weight: 700; text-align:center; margin: 6px 0 10px; letter-spacing: 1px; }
-.nameplate-mock .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 14px; font-size: 11px; }
-.nameplate-mock .row { display: flex; justify-content: space-between; }
-.nameplate-mock .lbl { opacity: 0.65; }
-.nameplate-mock .val { font-weight: 700; }
-.nameplate-mock .footer { margin-top: auto; padding-top: 6px; font-size: 9px; opacity: 0.6; display:flex; justify-content:space-between; }
+.ocr-idle-text { font-size: 13px; color: var(--text-2); flex: 1; }
+.ocr-demo-btn {
+  font-size: 12px; color: var(--brand);
+  background: white; border: 1px solid var(--line-strong);
+  padding: 5px 12px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
+}
+.ocr-demo-btn:hover { border-color: var(--brand); background: #f0f6ff; }
 
-.scan-bar {
-  position: absolute; left: 0; right: 0; height: 60px; pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(77,201,255,0.55) 50%, rgba(77,201,255,0) 100%);
-  box-shadow: 0 0 24px rgba(77,201,255,0.6); z-index: 4;
+/* 缩略图 */
+.ocr-thumb {
+  width: 80px; height: 60px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--line); flex-shrink: 0;
 }
-.scan-bar::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: #4dc9ff; box-shadow: 0 0 8px #4dc9ff;
+.ocr-thumb-demo {
+  background: #f0f4fa; display: flex; align-items: center; justify-content: center;
 }
 
-.hit-box {
-  position: absolute; pointer-events: none;
-  border: 1.5px solid #4dc9ff; border-radius: 3px;
-  box-shadow: 0 0 8px rgba(77,201,255,0.6), inset 0 0 4px rgba(77,201,255,0.3);
-  background: rgba(77,201,255,0.08);
-  animation: hit-flash 0.5s ease;
-  z-index: 3;
+/* 识别中 */
+.ocr-loading {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border: 1px solid var(--line);
+  border-radius: 8px; background: #fafbff;
 }
-.hit-box.done { border-color: #2bd9a8; box-shadow: 0 0 8px rgba(43,217,168,0.5); background: rgba(43,217,168,0.10); }
-.hit-box .tag {
-  position: absolute; top: -18px; left: 0;
-  font-family: "JetBrains Mono", monospace; font-size: 9px;
-  padding: 1px 6px; background: #4dc9ff; color: #0f1d3d; border-radius: 3px; white-space: nowrap;
-  font-weight: 600;
-}
-.hit-box.done .tag { background: #2bd9a8; }
-@keyframes hit-flash {
-  0% { opacity: 0; transform: scale(0.8); }
-  60% { opacity: 1; transform: scale(1.06); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-.ocr-bottom-bar {
-  position: absolute; left: 12px; right: 12px; bottom: 12px;
+.ocr-loading-info {
   display: flex; align-items: center; gap: 10px;
-  font-family: "JetBrains Mono", monospace; font-size: 11px;
-  color: #c5d3ed; z-index: 5;
+  font-size: 13px; color: var(--text-2);
 }
-.ocr-bottom-bar .progress-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.10); border-radius: 2px; overflow: hidden; }
-.ocr-bottom-bar .progress-fill { height: 100%; background: linear-gradient(90deg, #4dc9ff, #2bd9a8); transition: width 0.06s linear; }
-.ocr-bottom-bar .label { color: #4dc9ff; }
-.ocr-mini-btn {
-  background: rgba(77,201,255,0.1); border: 1px solid rgba(77,201,255,0.3);
-  color: #4dc9ff; padding: 4px 10px; border-radius: 4px;
-  font-size: 11px; cursor: pointer; font-family: inherit;
-  display: inline-flex; align-items: center; gap: 4px;
+.ocr-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2.5px solid var(--line);
+  border-top-color: var(--brand);
+  animation: spin 0.8s linear infinite; flex-shrink: 0;
 }
-.ocr-mini-btn:hover { background: rgba(77,201,255,0.2); }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.ocr-log {
-  background: #243650;
-  border: 1px solid rgba(77,201,255,0.2); border-radius: 10px;
-  padding: 14px; font-family: "JetBrains Mono", monospace;
-  font-size: 10.5px; color: #c5d3ed; line-height: 1.7;
-  display: flex; flex-direction: column; min-height: 280px;
-  position: relative; overflow: hidden;
+/* 识别完成 */
+.ocr-done {
+  display: flex; gap: 14px;
+  border: 1px solid rgba(43,217,168,0.3); border-radius: 8px;
+  background: rgba(43,217,168,0.04); padding: 14px;
 }
-.ocr-log::before {
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(77,201,255,0.06), transparent 70%);
-  pointer-events: none; z-index: 0;
+.ocr-result { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ocr-result-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--ok); font-weight: 500;
 }
-.ocr-log::after {
-  content: ""; position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(77,201,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(77,201,255,0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none; z-index: 0;
+.ocr-reset-btn {
+  margin-left: auto; font-size: 11px; color: var(--text-3);
+  background: none; border: none; cursor: pointer; text-decoration: underline;
 }
-.ocr-log-head { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 10px; }
-.ocr-log-head .h { color: #eaf2ff; font-size: 12px; font-family: "Noto Sans SC", sans-serif; }
-.ocr-log-head .sub { color: #9db3d6; font-size: 10px; margin-left: auto; }
-.ocr-log-body { position: relative; z-index: 1; flex: 1; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; }
-.ocr-log-body .ll { display: block; animation: log-in 0.25s ease forwards; }
-.ocr-log .ts { color: #9db3d6; margin-right: 6px; }
-.ocr-log .lv-info { color: #4dc9ff; }
-.ocr-log .lv-ok   { color: #2bd9a8; }
+.ocr-reset-btn:hover { color: var(--text-1); }
+
+.ocr-result-list {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+}
+.ocr-result-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; background: #fff; font-size: 12px;
+}
+.ocr-result-row:nth-child(even) { background: #f8fafd; }
+.r-name { color: var(--text-2); flex-shrink: 0; }
+.r-val { color: var(--text-0); font-size: 11px; }
+
+.ocr-result-actions {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 8px; border-top: 1px dashed var(--line);
+}
+.ocr-hint { font-size: 12px; color: var(--text-2); flex: 1; }
+.btn-sm { padding: 5px 14px; font-size: 12px; }
 </style>
-

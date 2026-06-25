@@ -87,13 +87,13 @@ const elimColor = computed(() => {
                 <span class="l">设备分类详细</span>
                 <span class="v">{{ rule.subType || '—' }}</span>
               </div>
-              <div class="field" v-if="rule.modelPattern?.length">
+              <div class="field full" v-if="rule.modelPattern?.length">
                 <span class="l">设备系列</span>
                 <span class="v mono">{{ rule.modelPattern.join(' / ') }}</span>
               </div>
-              <div class="field" v-if="rule.modelPattern?.length">
+              <div class="field full model-list" v-if="rule.modelPattern?.length">
                 <span class="l">设备系列清单</span>
-                <span class="v mono">{{ rule.modelPattern.join('\n') }}</span>
+                <div class="model-list-body">{{ rule.modelPattern.join('\n') }}</div>
               </div>
             </div>
           </div>
@@ -197,5 +197,14 @@ const elimColor = computed(() => {
 .field .v.mono { font-family: "JetBrains Mono", monospace; }
 .field .v.small { font-size: 11px; }
 .field .v.bold { font-weight: 700; }
-.field .v.brand { color: var(--brand); }
+.field.model-list { flex-direction: column; gap: 6px; }
+.model-list-body {
+  font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-0);
+  white-space: pre-line; line-height: 1.8;
+  max-height: 120px; overflow-y: auto;
+  background: #f6f9ff; border: 1px solid var(--line);
+  border-radius: 5px; padding: 6px 10px;
+}
+.model-list-body::-webkit-scrollbar { width: 4px; }
+.model-list-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
 </style>

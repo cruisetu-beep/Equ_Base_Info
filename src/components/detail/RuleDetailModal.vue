@@ -75,6 +75,10 @@ const elimColor = computed(() => {
           <div class="section">
             <div class="section-title">设备信息</div>
             <div class="fields">
+              <div class="field full">
+                <span class="l">设备名称</span>
+                <span class="v">{{ rule.product }}</span>
+              </div>
               <div class="field">
                 <span class="l">设备分类</span>
                 <span class="v">{{ rule.typeK === 'motor' ? '电动机' : rule.typeK === 'fan' ? '风机' : rule.typeK === 'pump' ? '泵' : rule.typeK === 'transformer' ? '变压器' : rule.typeK === 'compressor' ? '压缩机' : rule.typeK === 'boiler' ? '锅炉' : rule.typeK === 'welder' ? '焊机' : rule.typeK }}</span>
@@ -82,10 +86,6 @@ const elimColor = computed(() => {
               <div class="field">
                 <span class="l">设备分类详细</span>
                 <span class="v">{{ rule.subType || '—' }}</span>
-              </div>
-              <div class="field full">
-                <span class="l">设备名称</span>
-                <span class="v">{{ rule.product }}</span>
               </div>
               <div class="field" v-if="rule.modelPattern?.length">
                 <span class="l">设备系列</span>

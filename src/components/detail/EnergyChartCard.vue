@@ -19,12 +19,17 @@ let chart = null
 const totalKwh = computed(() =>
   props.energyData.reduce((s, d) => s + d.kwh, 0).toFixed(1)
 )
-const peakKwh = computed(() =>
-  Math.max(...props.energyData.map(d => d.kwh)).toFixed(3)
-)
-const peakTime = computed(() => {
-  const max = Math.max(...props.energyData.map(d => d.kwh))
-  return props.energyData.find(d => d.kwh === max)?.time || '--'
+// 本月：今日 × 当月已过天数（确定性模拟）
+const monthKwh = computed(() => {
+  const day = new Date().getDate()
+  return (parseFloat(totalKwh.value) * day).toFixed(1)
+})
+// 今年：今日 × 当年已过天数
+const yearKwh = computed(() => {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((now - start) / 86400000)
+  return (parseFloat(totalKwh.value) * dayOfYear).toFixed(1)
 })
 
 // 小时聚合（96条 → 24条，便于可视化）
@@ -122,7 +127,7 @@ watch(() => props.energyData, () => {
   <div class="card dd-card">
     <div class="dd-card-head">
       <AppIcon name="zap" :size="16" stroke="var(--brand)" />
-      <h3>今日能耗</h3>
+      <h3>设备能耗</h3>
       <span class="ec-date">{{ new Date().toLocaleDateString('zh-CN') }}</span>
     </div>
 
@@ -130,17 +135,17 @@ watch(() => props.energyData, () => {
     <div class="ec-stats">
       <div class="ec-stat">
         <div class="ec-stat-val">{{ totalKwh }}</div>
-        <div class="ec-stat-label">累计用电 (kWh)</div>
+        <div class="ec-stat-label">今日能耗 (kWh)</div>
       </div>
       <div class="ec-divider"></div>
       <div class="ec-stat">
-        <div class="ec-stat-val peak">{{ peakKwh }}</div>
-        <div class="ec-stat-label">峰值 (kWh/15min)</div>
+        <div class="ec-stat-val">{{ monthKwh }}</div>
+        <div class="ec-stat-label">本月能耗 (kWh)</div>
       </div>
       <div class="ec-divider"></div>
       <div class="ec-stat">
-        <div class="ec-stat-val mono">{{ peakTime }}</div>
-        <div class="ec-stat-label">峰值时段</div>
+        <div class="ec-stat-val mono">{{ yearKwh }}</div>
+        <div class="ec-stat-label">今年能耗 (kWh)</div>
       </div>
     </div>
 

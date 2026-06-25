@@ -274,15 +274,15 @@ const progress = computed(() => {
 </template>
 
 <style scoped>
-.form-section { padding: 20px 28px; border-bottom: 1px dashed var(--line); }
-.form-section:last-of-type { border-bottom: none; }
+.form-section { padding: 20px 28px; }
 
 .section-content {
   border: 1px solid var(--line); border-radius: 10px;
   overflow: hidden; padding: 16px;
 }
 
-.section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+
 .section-head .ico {
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   background: linear-gradient(135deg,#eaf2ff,#e2dcff);

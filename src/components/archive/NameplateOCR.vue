@@ -144,10 +144,12 @@ function importParams() {
 
 /* 缩略图 */
 .ocr-thumb {
-  width: 80px; height: 60px; object-fit: cover;
+  width: 100px; height: auto; max-height: 160px; object-fit: contain;
   border-radius: 6px; border: 1px solid var(--line); flex-shrink: 0;
+  background: #f0f4fa;
 }
 .ocr-thumb-demo {
+  width: 100px; height: 80px;
   background: #f0f4fa; display: flex; align-items: center; justify-content: center;
 }
 

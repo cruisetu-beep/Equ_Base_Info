@@ -1,3 +1,8 @@
+<script>
+// 模块级：组件重挂载不重置
+let demoCount = 0
+</script>
+
 <script setup>
 import { ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
@@ -10,9 +15,6 @@ const phase      = ref('idle')
 const previewUrl = ref('')
 const result     = ref([])
 const fileInput  = ref(null)
-
-// 演示时交替成功/失败
-let demoCount = 0
 
 function triggerUpload() { fileInput.value.click() }
 

@@ -200,8 +200,6 @@ const elimColor = computed(() => {
   font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-0);
   white-space: pre-line; line-height: 1.8;
   max-height: 120px; overflow-y: auto;
-  background: #f6f9ff; border: 1px solid var(--line);
-  border-radius: 5px; padding: 6px 10px;
 }
 .model-list-body::-webkit-scrollbar { width: 4px; }
 .model-list-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }

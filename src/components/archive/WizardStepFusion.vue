@@ -207,70 +207,70 @@ const THEMES = [
 
 /* 横幅 */
 .banner {
-  display: flex; align-items: center; gap: 20px;
+  display: flex; align-items: center; gap: 16px;
   background: #fff; border: 1px solid #eceff3; border-radius: 16px;
-  padding: 26px 30px; box-shadow: 0 8px 28px -20px rgba(15,23,42,.35);
+  padding: 18px 24px; box-shadow: 0 8px 28px -20px rgba(15,23,42,.35);
 }
 .icon-outer {
-  width: 60px; height: 60px; border-radius: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
   background: #e6f7ee; display: grid; place-items: center; flex-shrink: 0;
 }
 .icon-inner {
-  width: 42px; height: 42px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   background: linear-gradient(135deg, #34d399, #16a34a);
   box-shadow: 0 6px 14px -5px rgba(22,163,74,.6);
   display: grid; place-items: center;
 }
 .banner-text { flex: 1; }
-.banner-title { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px; margin-bottom: 6px; }
-.banner-sub { font-size: 14px; color: #64748b; line-height: 1.5; }
+.banner-title { font-size: 18px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px; margin-bottom: 4px; }
+.banner-sub { font-size: 13px; color: #64748b; line-height: 1.4; }
 .banner-sub strong { font-weight: 600; color: #0f172a; }
 .banner-pill {
   display: flex; align-items: baseline; gap: 4px;
   background: #ecfdf3; border: 1px solid #c7eed5;
-  padding: 9px 16px; border-radius: 999px; flex-shrink: 0;
+  padding: 7px 14px; border-radius: 999px; flex-shrink: 0;
 }
-.pill-num { font-size: 20px; font-weight: 800; color: #16a34a; }
-.pill-text { font-size: 13px; font-weight: 600; color: #15803d; }
+.pill-num { font-size: 18px; font-weight: 800; color: #16a34a; }
+.pill-text { font-size: 12px; font-weight: 600; color: #15803d; }
 
 /* 卡片网格 */
-.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .step-card {
-  background: #fff; border: 1px solid #eceff3; border-radius: 16px;
-  padding: 24px; box-shadow: 0 8px 28px -22px rgba(15,23,42,.35);
+  background: #fff; border: 1px solid #eceff3; border-radius: 14px;
+  padding: 18px; box-shadow: 0 8px 28px -22px rgba(15,23,42,.35);
   display: flex; flex-direction: column;
 }
 
 /* 卡片顶部 */
-.card-top { display: flex; align-items: center; gap: 14px; }
-.card-icon { width: 58px; height: 58px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; }
+.card-top { display: flex; align-items: center; gap: 12px; }
+.card-icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
 .card-title-wrap { flex: 1; }
-.card-step { font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: 1.5px; }
-.card-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 3px; }
+.card-step { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1.5px; }
+.card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 2px; }
 
 .done-badge {
   display: inline-flex; align-items: center; gap: 5px;
-  background: #ecfdf3; color: #16a34a; font-size: 14px; font-weight: 700;
-  padding: 8px 15px; border-radius: 999px; flex-shrink: 0;
+  background: #ecfdf3; color: #16a34a; font-size: 13px; font-weight: 700;
+  padding: 6px 12px; border-radius: 999px; flex-shrink: 0;
 }
 .skip-badge {
-  background: #f1f5f9; color: #94a3b8; font-size: 13px; font-weight: 600;
-  padding: 7px 14px; border-radius: 999px; flex-shrink: 0;
+  background: #f1f5f9; color: #94a3b8; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; flex-shrink: 0;
 }
 
 /* 高亮信息块 */
 .accent-block {
-  margin-top: 16px; border-radius: 0 10px 10px 0;
-  padding: 16px; border-left: 3px solid;
-  display: flex; flex-direction: column; gap: 8px; flex: 1;
+  margin-top: 12px; border-radius: 0 10px 10px 0;
+  padding: 12px 14px; border-left: 3px solid;
+  display: flex; flex-direction: column; gap: 6px; flex: 1;
 }
-.accent-intro { font-size: 12px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
-.accent-main { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
-.accent-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #475569; }
+.accent-intro { font-size: 11px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
+.accent-main { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.accent-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #475569; }
 
-.info-pill { padding: 2px 9px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+.info-pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
 .tag-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.param-tag { font-size: 12px; padding: 3px 9px; border-radius: 6px; }
+.param-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; }
 
 .green-dot {
   width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0;

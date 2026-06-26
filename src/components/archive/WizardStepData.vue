@@ -239,8 +239,6 @@ watch(selectedNodeId, () => {
 
 /* 节点树面板 */
 .tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-  display: flex; align-items: center; gap: 8px;
-}
 .tree-body { flex: 1; overflow-y: auto; padding: 8px; }
 .tree-empty { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-3); padding: 20px; text-align: center; }
 .tree-section { margin-bottom: 2px; }

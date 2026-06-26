@@ -206,7 +206,7 @@ watch(selectedNodeId, () => {
 </template>
 
 <style scoped>
-.step-data { display: grid; grid-template-columns: 300px 1fr; gap: 14px; min-height: 480px; }
+.step-data { display: grid; grid-template-columns: 300px 1fr; gap: 14px; min-height: 360px; }
 
 /* 节点树面板 */
 .tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 0; }

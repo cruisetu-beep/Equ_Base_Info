@@ -43,7 +43,7 @@ function updatePkg(val) { pkg.value = val }
   <div class="card" style="padding:0">
     <ArchiveStepper :current="stepIdx" />
 
-    <div style="padding:24px">
+    <div class="wizard-body">
       <WizardStepBasic
         v-if="stepIdx === 0"
         :data="pkg"
@@ -73,3 +73,15 @@ function updatePkg(val) { pkg.value = val }
     </div>
   </div>
 </template>
+
+<style scoped>
+.wizard-body {
+  padding: 24px;
+  height: 580px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+/* 细滚动条 */
+.wizard-body::-webkit-scrollbar { width: 4px; }
+.wizard-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+</style>

@@ -253,7 +253,7 @@ const THEMES = [
 .accent-block {
   margin-top: 8px; border-radius: 0 8px 8px 0;
   padding: 10px 12px; border-left: 3px solid;
-  display: flex; flex-direction: column; gap: 5px; flex: 1;
+  display: flex; flex-direction: column; gap: 10px; flex: 1;
 }
 .accent-intro { font-size: 11px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
 .accent-main { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }

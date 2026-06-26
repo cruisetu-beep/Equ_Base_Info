@@ -33,6 +33,7 @@ function mapBackendToFrontendRule(r) {
       ruleId: m.RuleID,
       modelName: m.ModelName,
       isPrefixMatch: m.IsPrefixMatch,
+      matchValue: m.MatchValue || '',
       state: m.State
     })),
     specConstraints: (r.SpecConstraints || []).map(s => ({
@@ -77,6 +78,7 @@ function mapFrontendToBackendRule(r) {
       RuleID: m.ruleId || r.ruleId,
       ModelName: m.modelName,
       IsPrefixMatch: m.isPrefixMatch || false,
+      MatchValue: m.matchValue || '',
       State: m.state || 1
     })),
     SpecConstraints: (r.specConstraints || []).map(s => ({

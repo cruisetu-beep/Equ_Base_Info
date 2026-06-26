@@ -12,7 +12,11 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      '/api': { target: 'https://www.ttbems.com:14440/HPManage', changeOrigin: true }
+      '/api': {
+        target: 'https://127.0.0.1:7023',
+        changeOrigin: true,
+        secure: false
+      }
     }
   },
 })

@@ -138,7 +138,12 @@ export function generateStepLogs(stepK, judgeRes, device) {
           const specCheck = h.checks.find(c => c.step === '规格区间')
           if (specCheck && specCheck.conditions && specCheck.conditions.length > 0) {
             for (const c of specCheck.conditions) {
-              const m = `${c.key}: ${c.actual}${c.unit || ''} ∈ [${c.min}, ${c.max}]${c.unit || ''}`
+              let m = `${c.key}: ${c.actual}`
+              if (c.desc) {
+                m += ` (要求: ${c.desc})`
+              } else {
+                m += `${c.unit || ''} ∈ [${c.min}, ${c.max}]${c.unit || ''}`
+              }
               logs.push({ ts, lv: 'ok', msg: `✓ ${h.rule.ruleId} ${m}` })
             }
           } else {

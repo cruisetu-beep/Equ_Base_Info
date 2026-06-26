@@ -1,91 +1,194 @@
 <script setup>
 // ── components/judge/JudgeRunner.vue ──────────────────────────────
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuleHitMini from './RuleHitMini.vue'
-import { judgeDevice } from '@/utils/judgeEngine'
-import { generateStepLogs, tokenizeJudgeLog } from '@/utils/logHelpers'
+import { judgeEquipments } from '@/api/judge'
 import { DEV_TYPE_MAP } from '@/data/devices'
 import { JUDGE_STATUS_MAP } from '@/data/rules'
+import { tokenizeJudgeLog } from '@/utils/logHelpers'
 
 const props = defineProps({
   devices: { type: Array, required: true },
-  rules:   { type: Array, required: true },
+  rules:   { type: Array, required: true }
 })
 const emit = defineEmits(['done', 'cancel'])
 
-const STEPS = [
-  { k: 'load',  n: '加载规则库',     d: '读取 v1.3 规则库...' },
-  { k: 'type1', n: '一级类型识别',   d: '匹配设备一级类型' },
-  { k: 'type2', n: '二级类型匹配',   d: '匹配设备子类别' },
-  { k: 'model', n: '型号系列匹配',   d: '匹配淘汰目录型号系列' },
-  { k: 'spec',  n: '规格区间校验',   d: '功率/容量/流量等区间判定' },
-  { k: 'year',  n: '投运年份校验',   d: '对照截止日期判断' },
-  { k: 'final', n: '综合判定',       d: '汇总命中规则，输出结论' },
-]
+const curIdx    = ref(0)
+const curStep   = ref(-1)
+const results   = ref([])
+const logs      = ref([])
+const judgeRes  = ref(null)
+const phase     = ref('running') // running | done
 
-const curIdx   = ref(0)
-const curStep  = ref(-1)
-const results  = ref([])
-const logs     = ref([])
-const judgeRes = ref(null)
-const phase    = ref('running') // running | done
+// 动态的步骤列表，前两步固定，后续步骤在接口成功响应后由后端 flowSteps 动态追加
+const STEPS = ref([
+  { k: 'verify', n: '校验设备信息', d: '校验设备录入数据的完整性...', status: 'success' },
+  { k: 'load',   n: '加载规则库',   d: '请求淘汰判定服务...', status: 'success' },
+])
 
-let stepTimer = null
-
-function scheduleNext(delay) {
-  clearTimeout(stepTimer)
-  stepTimer = setTimeout(advance, delay)
-}
-
-function advance() {
-  if (phase.value === 'done') return
-
-  // 当前设备所有步骤完成
-  if (curStep.value >= STEPS.length - 1) {
-    results.value = [...results.value, judgeRes.value]
-    const nextIdx = curIdx.value + 1
-    if (nextIdx >= props.devices.length) {
-      phase.value = 'done'
-      setTimeout(() => emit('done', results.value), 400)
-      return
-    }
-    curIdx.value  = nextIdx
-    curStep.value = -1
-    logs.value    = []
-    judgeRes.value = judgeDevice(props.devices[nextIdx], props.rules)
-    scheduleNext(200)
-    return
-  }
-
-  curStep.value += 1
-  // 生成本步日志
-  const step = STEPS[curStep.value]
-  const newLogs = generateStepLogs(step.k, judgeRes.value, props.devices[curIdx.value])
-  logs.value = [...logs.value, ...newLogs]
-  scheduleNext(curStep.value === STEPS.length - 1
-    ? (props.devices.length === 1 ? 1200 : 700)
-    : 320)
-}
-
-// 初始化第一台设备
-if (props.devices.length > 0) {
-  judgeRes.value = judgeDevice(props.devices[0], props.rules)
-  scheduleNext(200)
-}
-
-onUnmounted(() => clearTimeout(stepTimer))
-
-// ── computed ────────────────────────────────────────────────────
 const curDevice  = computed(() => props.devices[curIdx.value])
 const devType    = computed(() => DEV_TYPE_MAP[curDevice.value?.typeK] || DEV_TYPE_MAP.other)
 const finalStatus = computed(() =>
-  curStep.value >= STEPS.length - 1 && judgeRes.value ? judgeRes.value.status : null)
+  curStep.value >= STEPS.value.length - 1 && judgeRes.value ? judgeRes.value.status : null)
 const finalMeta = computed(() => finalStatus.value ? JUDGE_STATUS_MAP[finalStatus.value] : null)
 
 const progressPct = computed(() => {
   if (!props.devices.length) return 0
-  return Math.round(((curIdx.value + (curStep.value + 1) / STEPS.length) / props.devices.length) * 100)
+  return Math.round(((curIdx.value + (curStep.value + 1) / STEPS.value.length) / props.devices.length) * 100)
+})
+
+// 时间格式化辅助
+function tsNow() {
+  return new Date().toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+// 核心：单台设备接口提交与动态步骤日志推进
+async function runDeviceJudge(index) {
+  curStep.value = 0 // 第一步：校验设备信息
+  logs.value = []
+  
+  const dev = props.devices[index]
+  
+  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】开始校验设备数据：${dev.name || dev.equipmentName || '未命名'} (编号: ${dev.code || dev.equId || `TEMP-${index}`})` })
+  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】类型：${dev.typeName || dev.type2 || '—'}，型号：${dev.model || '—'}` })
+  
+  // 模拟极短本地数据校验
+  await new Promise(r => setTimeout(r, 200))
+  logs.value.push({ ts: tsNow(), lv: 'ok', msg: `【OK】设备信息格式校验通过` })
+  
+  curStep.value = 1 // 第二步：加载规则库
+  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】发起规则库判定服务网络请求...` })
+  
+  try {
+    const equId = dev.equId || dev.id
+    // 真实单台调用接口
+    const res = await judgeEquipments([equId])
+    if (!res || res.length === 0) {
+      throw new Error("判定接口未返回有效数据")
+    }
+    
+    logs.value.push({ ts: tsNow(), lv: 'ok', msg: `【OK】规则库云端判定服务响应成功` })
+    const apiRes = res[0]
+    
+    // 对齐淘汰判定状态
+    let alignedStatus = 'normal'
+    if (apiRes.judgeStatus === '强制淘汰') alignedStatus = 'phaseout-mandatory'
+    else if (apiRes.judgeStatus === '限期淘汰') alignedStatus = 'phaseout-deadline'
+    
+    // 解析后端返回的 flowSteps，作为后续步骤动态追加
+    const backendSteps = (apiRes.flowSteps || []).map(fs => ({
+      k: fs.key,
+      n: fs.name,
+      d: fs.name,
+      status: fs.status, // "success" / "warning"
+      logs: fs.logs || []
+    }))
+    
+    // 更新步骤表
+    STEPS.value = [
+      { k: 'verify', n: '校验设备信息', d: '校验设备录入数据的完整性...', status: 'success' },
+      { k: 'load',   n: '加载规则库',   d: '请求淘汰判定服务...', status: 'success' },
+      ...backendSteps
+    ]
+    
+    // 转换 Hits
+    const alignedHits = []
+    if (apiRes.hits && apiRes.hits.length > 0) {
+      apiRes.hits.forEach(ah => {
+        const localRule = props.rules.find(r => r.ruleId === ah.ruleId) || {
+          ruleId: ah.ruleId,
+          product: ah.ruleName,
+          eliminationType: ah.eliminationType === '强制淘汰' ? '强制' : '限期',
+          nationalStandard: ah.desc
+        }
+        
+        const alignedChecks = (ah.checks || []).map(c => {
+          let stepName = c.step
+          if (c.step === '型号系列' || c.step === '型号匹配') stepName = '型号系列'
+          if (c.step === '规格区间' || c.step === '规格匹配') stepName = '规格区间'
+          if (c.step === '投运年份' || c.step === '年份约束') stepName = '投运年份'
+          
+          return {
+            step: stepName,
+            expect: c.expect,
+            actual: c.actual,
+            ok: c.ok,
+            conditions: stepName === '规格区间' ? [
+              { key: '参数', min: 0, max: 0, actual: c.actual, ok: c.ok, desc: c.expect }
+            ] : []
+          }
+        })
+        
+        alignedHits.push({
+          rule: localRule,
+          modelHit: dev.model,
+          apiHit: ah,
+          checks: alignedChecks
+        })
+      })
+    }
+    
+    judgeRes.value = {
+      device: dev,
+      equId: dev.equId || dev.id,
+      equipmentName: dev.name || dev.equipmentName,
+      model: dev.model || '',
+      year: dev.year || '',
+      power: dev.power || '',
+      manufactureDate: dev.manufactureDate || '',
+      status: alignedStatus,
+      hits: alignedHits,
+      apiRaw: apiRes
+    }
+    
+    // 依次且有延迟地向前推演后续步骤
+    for (let i = 2; i < STEPS.value.length; i++) {
+      await new Promise(r => setTimeout(r, 450)) // 步骤间延迟
+      curStep.value = i
+      
+      const stepItem = STEPS.value[i]
+      // 将本步的日志打字机般逐行输出
+      for (const line of stepItem.logs) {
+        await new Promise(r => setTimeout(r, 100))
+        logs.value.push({
+          ts: tsNow(),
+          lv: line.includes('【OK】') ? 'ok' : (line.includes('【WARN】') ? 'warn' : 'info'),
+          msg: line
+        })
+      }
+    }
+    
+    // 结束本台判定
+    await new Promise(r => setTimeout(r, 500))
+    results.value = [...results.value, judgeRes.value]
+    
+    const nextIdx = index + 1
+    if (nextIdx >= props.devices.length) {
+      phase.value = 'done'
+      setTimeout(() => emit('done', results.value), 400)
+    } else {
+      curIdx.value = nextIdx
+      STEPS.value = [
+        { k: 'verify', n: '校验设备信息', d: '校验设备录入数据的完整性...', status: 'success' },
+        { k: 'load',   n: '加载规则库',   d: '请求淘汰判定服务...', status: 'success' },
+      ]
+      setTimeout(() => runDeviceJudge(nextIdx), 400)
+    }
+    
+  } catch (err) {
+    console.error("依次提交设备判定接口出错:", err)
+    STEPS.value[1].status = 'fail'
+    curStep.value = 1
+    logs.value.push({ ts: tsNow(), lv: 'err', msg: `【ERROR】连接规则库判定接口失败: ${err.message || err}` })
+    logs.value.push({ ts: tsNow(), lv: 'err', msg: `【ERROR】判定流程非正常终止，请检查网络或后台服务配置` })
+  }
+}
+
+onMounted(() => {
+  if (props.devices.length > 0) {
+    runDeviceJudge(0)
+  }
 })
 </script>
 
@@ -136,24 +239,40 @@ const progressPct = computed(() => {
             <AppIcon :name="devType.icon" :size="26" :stroke="devType.color" />
           </div>
           <div>
-            <div class="code">{{ curDevice.code || `TEMP-${curIdx}` }}</div>
-            <div class="name">{{ curDevice.name || '未命名设备' }}</div>
+            <div class="code">{{ curDevice.code || curDevice.equId || `TEMP-${curIdx}` }}</div>
+            <div class="name">{{ curDevice.name || curDevice.equipmentName || '未命名设备' }}</div>
           </div>
         </div>
         <div class="params">
-          <div
-            v-for="item in (curDevice.paramGroups || []).flatMap(g => g.items).slice(0, 4)"
-            :key="item.name"
-            class="param-row"
-          >
-            <span class="pl">{{ item.name }}</span><span class="pv">{{ item.value }}</span>
-          </div>
+          <template v-if="curDevice.paramGroups && curDevice.paramGroups.length > 0">
+            <div
+              v-for="item in curDevice.paramGroups.flatMap(g => g.items).slice(0, 4)"
+              :key="item.name"
+              class="param-row"
+            >
+              <span class="pl">{{ item.name }}</span><span class="pv">{{ item.value }}</span>
+            </div>
+          </template>
+          <template v-else>
+            <div class="param-row" v-if="curDevice.power">
+              <span class="pl">额定功率</span><span class="pv">{{ curDevice.power }}</span>
+            </div>
+            <div class="param-row" v-if="curDevice.brand">
+              <span class="pl">品牌/厂家</span><span class="pv">{{ curDevice.brand }}</span>
+            </div>
+            <div class="param-row" v-if="curDevice.manufactureDate">
+              <span class="pl">出厂日期</span><span class="pv">{{ curDevice.manufactureDate.split('T')[0] }}</span>
+            </div>
+            <div class="param-row" v-if="curDevice.buildName">
+              <span class="pl">关联建筑</span><span class="pv">{{ curDevice.buildName }}</span>
+            </div>
+          </template>
         </div>
         <div class="info-rows">
-          <div><span class="lbl">类型：</span>{{ devType.label }} / {{ curDevice.type2 || '—' }}</div>
+          <div><span class="lbl">类型：</span>{{ devType.label }} / {{ curDevice.typeName || curDevice.type2 || '—' }}</div>
           <div><span class="lbl">型号：</span><span class="mono">{{ curDevice.model || '—' }}</span></div>
           <div><span class="lbl">投运：</span>{{ curDevice.year || '—' }} 年</div>
-          <div v-if="curDevice.building"><span class="lbl">建筑：</span>{{ curDevice.building }}</div>
+          <div v-if="curDevice.building || curDevice.buildName"><span class="lbl">建筑：</span>{{ curDevice.buildName || curDevice.building }}</div>
         </div>
       </div>
 
@@ -170,14 +289,18 @@ const progressPct = computed(() => {
         <div class="step-list">
           <div
             v-for="(s, i) in STEPS" :key="s.k"
-            :class="['step-row', curStep === i && 'active', curStep > i && 'done']"
+            :class="['step-row', curStep === i && 'active', curStep > i && 'done', curStep > i && s.status]"
           >
             <div class="dot">
-              <AppIcon v-if="curStep > i" name="check" :size="10" />
+              <AppIcon v-if="curStep > i && s.status === 'warning'" name="warn" :size="10" stroke="var(--warn-color, #e6a23c)" />
+              <AppIcon v-else-if="curStep > i && s.status === 'fail'" name="ban" :size="10" stroke="#f56c6c" />
+              <AppIcon v-else-if="curStep > i" name="check" :size="10" />
               <template v-else>{{ String(i + 1).padStart(2, '0') }}</template>
             </div>
             <span>{{ s.n }}</span>
-            <span v-if="curStep > i" class="step-stat">✓</span>
+            <span v-if="curStep > i && s.status === 'warning'" class="step-stat" style="color:#e6a23c">⚠️ 警告</span>
+            <span v-else-if="curStep > i && s.status === 'fail'" class="step-stat" style="color:#f56c6c">❌ 错误</span>
+            <span v-else-if="curStep > i" class="step-stat">✓</span>
           </div>
         </div>
 
@@ -224,7 +347,7 @@ const progressPct = computed(() => {
               :class="['queue-item', i === curIdx && 'curr', results[i] && 'done']"
             >
               <div class="qidx">{{ i + 1 }}</div>
-              <div class="qname">{{ d.name || `设备 ${i + 1}` }}</div>
+              <div class="qname">{{ d.name || d.equipmentName || `设备 ${i + 1}` }}</div>
               <span v-if="results[i]"
                     :class="['qstat level-tag', JUDGE_STATUS_MAP[results[i].status].cls]"
                     :style="{
@@ -327,6 +450,10 @@ const progressPct = computed(() => {
 .step-row.active .dot { background: linear-gradient(135deg, #4dc9ff, #2f7fff); border-color: transparent; color: white; box-shadow: 0 0 12px rgba(77,201,255,0.5); }
 .step-row.done { color: #c5d3ed; }
 .step-row.done .dot { background: rgba(43,217,168,0.18); border-color: rgba(43,217,168,0.45); color: #2bd9a8; }
+.step-row.done.warning { color: #fdd8a2; }
+.step-row.done.warning .dot { background: rgba(230,162,60,0.18); border-color: rgba(230,162,60,0.45); color: #e6a23c; }
+.step-row.done.fail { color: #feb8b8; }
+.step-row.done.fail .dot { background: rgba(245,108,108,0.18); border-color: rgba(245,108,108,0.45); color: #f56c6c; }
 .step-row .step-stat { margin-left: auto; font-size: 11px; font-family: "JetBrains Mono", monospace; }
 .step-row.done .step-stat { color: #2bd9a8; }
 

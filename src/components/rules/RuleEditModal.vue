@@ -174,6 +174,7 @@ function addModelRow() {
   form.value.modelPattern.push({
     modelId: 0,
     modelName: '',
+    matchValue: '',
     isPrefixMatch: true
   })
 }
@@ -461,20 +462,24 @@ function handleCancelEdit() {
               <tr>
                 <th style="width: 80px">型号 ID</th>
                 <th>型号匹配名称 / 前缀</th>
+                <th style="width: 150px">判定匹配值</th>
                 <th style="width: 150px">匹配模式</th>
                 <th style="width: 60px; text-align: center" v-if="!readonlyMode">操作</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="form.modelPattern.length === 0">
-                <td :colspan="readonlyMode ? 3 : 4" class="empty-row-tip">
+                <td :colspan="readonlyMode ? 4 : 5" class="empty-row-tip">
                   暂无匹配型号，默认将匹配所有型号。{{ readonlyMode ? '' : '点击下方按钮添加。' }}
                 </td>
               </tr>
               <tr v-for="(m, idx) in form.modelPattern" :key="idx">
                 <td class="id-col mono">{{ m.modelId > 0 ? m.modelId : '新增' }}</td>
                 <td>
-                  <input class="input-cell" placeholder="例如 Y2" v-model="m.modelName" :disabled="readonlyMode" />
+                  <input class="input-cell" placeholder="例如 Y2系列" v-model="m.modelName" :disabled="readonlyMode" />
+                </td>
+                <td>
+                  <input class="input-cell mono" placeholder="不填默认用型号名称" v-model="m.matchValue" :disabled="readonlyMode" />
                 </td>
                 <td>
                   <select class="select-cell" :value="m.isPrefixMatch ? 'prefix' : 'exact'" @change="m.isPrefixMatch = ($event.target.value === 'prefix')" :disabled="readonlyMode">

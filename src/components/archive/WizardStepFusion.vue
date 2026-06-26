@@ -200,19 +200,6 @@ const THEMES = [
 
     </div>
   </div>
-
-  <!-- 底部操作 -->
-  <div class="form-actions" style="margin-top:20px">
-    <button class="btn ghost" @click="$emit('prev')">
-      <AppIcon name="chevron-left" :size="14" /> 上一步
-    </button>
-    <div style="display:flex; gap:10px; margin-left:auto">
-      <button class="btn ghost" @click="$emit('next')">继续录入下一台</button>
-      <button class="btn primary" @click="$emit('next')">
-        <AppIcon name="check" :size="14" stroke="#fff" /> 完成 · 返回总览
-      </button>
-    </div>
-  </div>
 </template>
 
 <style scoped>

@@ -251,15 +251,6 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
     </div>
 
     <!-- 底部操作栏 -->
-    <div class="form-actions" style="grid-column: 1 / -1">
-      <div style="font-size:12px;color:var(--text-2);margin-right:auto">
-        已上传 <strong style="color:var(--brand-2)">{{ allDocs.length }}</strong> 份
-      </div>
-      <button class="btn ghost" @click="$emit('prev')"><AppIcon name="chevron-left" :size="14" /> 上一步</button>
-      <button class="btn primary" @click="$emit('next')">
-        下一步 · 运行数据接入 <AppIcon name="chevron-right" :size="14" />
-      </button>
-    </div>
   </div>
 </template>
 

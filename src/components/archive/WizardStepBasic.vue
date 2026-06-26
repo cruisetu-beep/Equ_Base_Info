@@ -250,18 +250,6 @@ const progress = computed(() => {
       </div>
     </div>
 
-    <!-- 底部操作 -->
-    <div class="form-actions">
-      <div class="form-progress">
-        <span>必填完成度</span>
-        <div class="bar"><div class="bar-fill" :style="{ width: `${progress}%` }" /></div>
-        <span class="mono">{{ progress }}%</span>
-      </div>
-      <button class="btn ghost">保存草稿</button>
-      <button class="btn primary" @click="next">
-        下一步 · 照片与文档 <AppIcon name="chevron-right" :size="14" />
-      </button>
-    </div>
   </div>
 </template>
 

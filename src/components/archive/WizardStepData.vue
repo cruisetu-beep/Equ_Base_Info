@@ -198,11 +198,6 @@ watch(selectedNodeId, () => {
       </div>
 
   </div>
-
-  <div class="form-actions" style="margin-top:16px">
-    <button class="btn ghost" @click="$emit('prev')"><AppIcon name="chevron-left" :size="14" /> 上一步</button>
-    <button class="btn primary" @click="$emit('next')">下一步 <AppIcon name="chevron-right" :size="14" /></button>
-  </div>
 </template>
 
 <style scoped>

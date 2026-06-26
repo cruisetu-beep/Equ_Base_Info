@@ -44,44 +44,80 @@ function updatePkg(val) { pkg.value = val }
     <ArchiveStepper :current="stepIdx" />
 
     <div class="wizard-body">
-      <WizardStepBasic
-        v-if="stepIdx === 0"
-        :data="pkg"
-        @update:data="updatePkg"
-        @next="next"
-      />
-      <WizardStepDocs
-        v-else-if="stepIdx === 1"
-        :data="pkg"
-        @update:data="updatePkg"
-        @next="next"
-        @prev="prev"
-      />
-      <WizardStepData
-        v-else-if="stepIdx === 2"
-        :data="pkg"
-        @update:data="updatePkg"
-        @next="next"
-        @prev="prev"
-      />
-      <WizardStepFusion
-        v-else-if="stepIdx === 3"
-        :data="pkg"
-        @next="$emit('exit')"
-        @prev="prev"
-      />
+      <div class="wizard-content">
+        <WizardStepBasic
+          v-if="stepIdx === 0"
+          :data="pkg"
+          @update:data="updatePkg"
+          @next="next"
+        />
+        <WizardStepDocs
+          v-else-if="stepIdx === 1"
+          :data="pkg"
+          @update:data="updatePkg"
+          @next="next"
+          @prev="prev"
+        />
+        <WizardStepData
+          v-else-if="stepIdx === 2"
+          :data="pkg"
+          @update:data="updatePkg"
+          @next="next"
+          @prev="prev"
+        />
+        <WizardStepFusion
+          v-else-if="stepIdx === 3"
+          :data="pkg"
+          @next="$emit('exit')"
+          @prev="prev"
+        />
+      </div>
+
+      <!-- 固定底部按钮区 -->
+      <div class="wizard-footer">
+        <div class="form-actions" style="margin:0">
+          <button v-if="stepIdx > 0" class="btn ghost" @click="prev">
+            <AppIcon name="chevron-left" :size="14" /> 上一步
+          </button>
+          <div style="margin-left:auto; display:flex; gap:10px">
+            <template v-if="stepIdx < 3">
+              <button class="btn ghost">保存草稿</button>
+              <button class="btn primary" @click="next">
+                下一步 <AppIcon name="chevron-right" :size="14" />
+              </button>
+            </template>
+            <template v-else>
+              <button class="btn ghost" @click="$emit('exit')">继续录入下一台</button>
+              <button class="btn primary" @click="$emit('exit')">
+                <AppIcon name="check" :size="14" stroke="#fff" /> 完成 · 返回总览
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .wizard-body {
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
   height: 580px;
-  overflow-y: auto;
   box-sizing: border-box;
 }
-/* 细滚动条 */
-.wizard-body::-webkit-scrollbar { width: 4px; }
-.wizard-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+.wizard-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 0;
+}
+.wizard-content::-webkit-scrollbar { width: 4px; }
+.wizard-content::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+.wizard-footer {
+  flex-shrink: 0;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
 </style>

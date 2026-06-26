@@ -57,22 +57,16 @@ const THEMES = [
       <div class="banner-icon">
         <div class="icon-outer">
           <div class="icon-inner">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
       </div>
-      <div class="banner-text">
-        <div class="banner-title">设备信息录入完成</div>
-        <div class="banner-sub">
-          <strong>{{ data.name || '新设备' }}</strong> 的四项信息已全部录入，归属
-          <strong>{{ data.building || '—' }}</strong>，设备档案已成功建立。
-        </div>
-      </div>
+      <div class="banner-title">设备信息录入完成</div>
       <div class="banner-pill">
         <span class="pill-num">{{ doneCount }}</span>
-        <span class="pill-text">/ {{ 4 }} 项完成</span>
+        <span class="pill-text">/ 4 项完成</span>
       </div>
     </div>
 
@@ -208,29 +202,26 @@ const THEMES = [
 /* 横幅 */
 .banner {
   display: flex; align-items: center; gap: 16px;
-  background: #fff; border: 1px solid #eceff3; border-radius: 16px;
-  padding: 18px 24px; box-shadow: 0 8px 28px -20px rgba(15,23,42,.35);
+  background: #fff; border: 1px solid #eceff3; border-radius: 14px;
+  padding: 12px 20px; box-shadow: 0 8px 28px -20px rgba(15,23,42,.35);
 }
 .icon-outer {
-  width: 52px; height: 52px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
   background: #e6f7ee; display: grid; place-items: center; flex-shrink: 0;
 }
 .icon-inner {
-  width: 36px; height: 36px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 50%;
   background: linear-gradient(135deg, #34d399, #16a34a);
-  box-shadow: 0 6px 14px -5px rgba(22,163,74,.6);
+  box-shadow: 0 4px 10px -4px rgba(22,163,74,.6);
   display: grid; place-items: center;
 }
-.banner-text { flex: 1; }
-.banner-title { font-size: 18px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px; margin-bottom: 4px; }
-.banner-sub { font-size: 13px; color: #64748b; line-height: 1.4; }
-.banner-sub strong { font-weight: 600; color: #0f172a; }
+.banner-title { font-size: 16px; font-weight: 700; color: #0f172a; flex: 1; }
 .banner-pill {
   display: flex; align-items: baseline; gap: 4px;
   background: #ecfdf3; border: 1px solid #c7eed5;
-  padding: 7px 14px; border-radius: 999px; flex-shrink: 0;
+  padding: 6px 14px; border-radius: 999px; flex-shrink: 0;
 }
-.pill-num { font-size: 18px; font-weight: 800; color: #16a34a; }
+.pill-num { font-size: 16px; font-weight: 800; color: #16a34a; }
 .pill-text { font-size: 12px; font-weight: 600; color: #15803d; }
 
 /* 卡片网格 */

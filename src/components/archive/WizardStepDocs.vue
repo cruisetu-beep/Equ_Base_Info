@@ -32,7 +32,7 @@ const STAGES = [
   { n: '向量化 / 入图谱',  k: 4 },
 ]
 
-const activeCat = ref('photo')
+const activeCat = ref('device')
 const docs      = ref({ ...(props.data.docs || {}) })
 const logs      = ref([{ ts: tsNow(), lv: 'info', msg: 'AI 文档解析引擎就绪 · 等待文档输入…' }])
 
@@ -141,14 +141,14 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
       <div class="uploader" @click="handleSampleAdd(activeCat)">
         <div class="icn"><AppIcon name="upload" :size="26" /></div>
         <div class="h">点击上传或拖拽 {{ activeCatInfo.n }}</div>
-        <div class="s">{{ activeCat === 'photo' ? '支持 JPG / PNG，可多张' : '支持 PDF / Word / 图片，单文件 ≤ 50MB' }}</div>
+        <div class="s">{{ ['device','site'].includes(activeCat) ? '支持 JPG / PNG，可多张' : '支持 PDF / Word / 图片，单文件 ≤ 50MB' }}</div>
         <div class="s" style="color:var(--brand);margin-top:6px">
           <AppIcon name="sparkles" :size="11" /> 点击此区域加载示例文档进行演示
         </div>
       </div>
 
       <!-- 照片网格 -->
-      <div v-if="activeCat === 'photo'" class="photo-grid">
+      <div v-if="['device','site'].includes(activeCat)" class="photo-grid">
         <div v-if="activeList.length === 0"
              style="grid-column:1/-1;color:var(--text-3);text-align:center;padding:30px 0;font-size:12px">
           暂无照片

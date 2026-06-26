@@ -161,15 +161,3 @@ export async function getAllRuleIds() {
   return res.data.data;
 }
 
-/**
- * 获取单条规则详情
- * @param {string} ruleId
- * @returns {Promise<Object>}
- */
-export async function getRuleDetail(ruleId) {
-  if (USE_MOCK) {
-    await delay(150)
-    return RULES_LIB_INIT.find(r => r.ruleId === ruleId) || null
-  }
-  return axios.get(`${BASE_URL}/Equipment/getRuleDetail`, { params: { ruleId } }).then(r => r.data.data || r.data)
-}

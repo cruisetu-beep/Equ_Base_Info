@@ -251,7 +251,7 @@ const STATUS_ICON = {
 
       <!-- 骨架屏加载中占位卡片 -->
       <template v-if="isLoading">
-        <div v-for="n in 7" :key="n" class="skeleton-card">
+        <div v-for="n in 9" :key="n" class="skeleton-card">
           <div class="sk-head">
             <div class="sk-thumb shinning"></div>
             <div class="sk-info">
@@ -460,7 +460,7 @@ const STATUS_ICON = {
 /* 卡片网格 */
 .dev-list { 
   display: grid; 
-  grid-template-columns: repeat(4, 1fr); 
+  grid-template-columns: repeat(5, 1fr); /* 调整为一排 5 列，卡片宽度更小更紧凑 */
   gap: 16px; 
   min-height: 520px; /* 保证页面刷新或无数据时高度不突然塌陷缩拢 */
 }
@@ -475,6 +475,8 @@ const STATUS_ICON = {
   box-shadow: 0 1px 2px rgba(60,110,200,0.04);
   display: flex;
   flex-direction: column;
+  height: 180px; /* 统一高度，使带与不带依据原因的卡片保持一致 */
+  box-sizing: border-box;
 }
 .dev-tile:hover {
   border-color: var(--brand);
@@ -595,7 +597,8 @@ const STATUS_ICON = {
   display: flex; align-items: center; gap: 16px;
   position: relative; overflow: hidden;
   transition: all 0.2s;
-  height: 160px; /* 固定高度与设备卡片对齐 */
+  height: 180px; /* 统一高度，与普通卡片对齐 */
+  box-sizing: border-box;
 }
 .create-tile:hover {
   border-color: var(--brand);
@@ -630,7 +633,8 @@ const STATUS_ICON = {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  height: 160px; /* 与真实设备卡片高度一致 */
+  height: 180px; /* 与真实设备卡片高度一致 */
+  box-sizing: border-box;
 }
 .sk-head { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
 .sk-thumb { width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0; }

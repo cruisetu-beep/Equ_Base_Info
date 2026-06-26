@@ -25,8 +25,15 @@ const normalizedRule = computed(() => {
   // 2. 获取批次名称
   const batch = r.batch || r.Catalog || ''
 
-  // 3. 获取淘汰类型
-  const actionType = r.actionType || r.EliminationType || ''
+  // 3. 获取淘汰类型并进行标准化清洗 (兼容接口转换后的 typeE 字段)
+  let actionType = r.actionType || r.typeE || r.EliminationType || ''
+  if (actionType.includes('限期')) {
+    actionType = '限期'
+  } else if (actionType.includes('强制') || actionType.includes('立即') || actionType === '淘汰') {
+    actionType = '强制'
+  } else if (actionType.includes('鼓励') || actionType.includes('建议')) {
+    actionType = '鼓励'
+  }
 
   // 4. 获取产品名称
   const product = r.product || r.ProductName || ''
@@ -53,13 +60,23 @@ const normalizedRule = computed(() => {
   // 8. 淘汰原因
   const reason = r.reason || r.EliminationReason || ''
 
-  // 9. 相关标准
-  let standard = r.standard || ''
-  if (!standard && r.NationalStandard) {
-    if (Array.isArray(r.NationalStandard)) {
-      standard = r.NationalStandard.join('；')
-    } else {
-      standard = r.NationalStandard
+  // 9. 相关标准并进行格式规范化 (防原始 JSON 数组字符字面量展示)
+  let standard = r.standard || r.NationalStandard || ''
+  if (standard) {
+    if (typeof standard === 'string') {
+      const trimmed = standard.trim()
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          if (Array.isArray(parsed)) {
+            standard = parsed.join('，')
+          }
+        } catch (e) {
+          // 解析失败保留原貌
+        }
+      }
+    } else if (Array.isArray(standard)) {
+      standard = standard.join('，')
     }
   }
 
@@ -117,6 +134,7 @@ const elimColor = computed(() => {
   const t = normalizedRule.value?.actionType
   if (t === '强制') return { color: '#e0394f', bg: 'rgba(224,57,79,0.08)', border: 'rgba(224,57,79,0.28)' }
   if (t === '限期') return { color: '#ea8c2e', bg: 'rgba(234,140,46,0.08)', border: 'rgba(234,140,46,0.28)' }
+  if (t === '鼓励') return { color: 'var(--brand)', bg: 'rgba(47,127,255,0.08)', border: 'rgba(47,127,255,0.28)' }
   return { color: 'var(--text-2)', bg: '#f8faff', border: 'var(--line)' }
 })
 </script>
@@ -202,7 +220,9 @@ const elimColor = computed(() => {
             <div class="fields">
               <div class="field">
                 <span class="l">淘汰类型</span>
-                <span class="v bold" :style="{ color: elimColor.color }">{{ normalizedRule.actionType }}淘汰</span>
+                <span class="v bold" :style="{ color: elimColor.color }">
+                  {{ normalizedRule.actionType === '鼓励' ? '鼓励替换' : (normalizedRule.actionType + '淘汰') }}
+                </span>
               </div>
               <div class="field">
                 <span class="l">淘汰日期</span>

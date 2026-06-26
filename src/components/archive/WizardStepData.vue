@@ -94,52 +94,46 @@ watch(selectedNodeId, () => {
 <template>
   <div class="step-data">
 
-    <!-- ── 顶部：楼宇提示 + 数据模型下拉 ── -->
-    <div class="top-bar">
-      <div class="building-hint" v-if="data.building">
-        <AppIcon name="cube" :size="13" stroke="var(--brand)" />
-        <span>{{ data.building }} · {{ models.length }} 个数据模型</span>
-      </div>
-      <div class="building-hint warn" v-else>
-        <AppIcon name="info" :size="13" stroke="var(--warn)" />
-        <span>请先在基础信息中选择楼宇</span>
-      </div>
+    <!-- 左：模型下拉 + 节点树 -->
+      <div class="tree-panel">
+        <!-- 楼宇提示 -->
+        <div class="building-hint" v-if="data.building">
+          <AppIcon name="cube" :size="13" stroke="var(--brand)" />
+          <span>{{ data.building }} · {{ models.length }} 个数据模型</span>
+        </div>
+        <div class="building-hint warn" v-else>
+          <AppIcon name="info" :size="13" stroke="var(--warn)" />
+          <span>请先在基础信息中选择楼宇</span>
+        </div>
 
-      <!-- 数据模型下拉 -->
-      <div class="model-select-wrap">
-        <label class="sel-label"><span class="step-num">1</span>数据模型</label>
-        <div class="model-dd" @click="modelDropdown = !modelDropdown" @blur.capture="setTimeout(()=>modelDropdown=false,150)" tabindex="0">
-          <AppIcon name="database" :size="14" stroke="var(--brand)" />
-          <span :class="selectedModelId ? 'sel-text' : 'sel-placeholder'">
-            {{ selectedModel?.name || '请选择数据模型...' }}
-          </span>
-          <AppIcon name="chevron-down" :size="13" stroke="var(--text-3)" />
-          <div v-if="modelDropdown && models.length" class="model-dropdown">
-            <div
-              v-for="m in models" :key="m.id"
-              :class="['dd-item', selectedModelId === m.id && 'active']"
-              @mousedown.prevent="selectModel(m.id)"
-            >
-              <AppIcon name="database" :size="13" :stroke="selectedModelId === m.id ? 'var(--brand)' : 'var(--text-3)'" />
-              {{ m.name }}
-              <AppIcon v-if="selectedModelId === m.id" name="check" :size="11" stroke="var(--brand)" style="margin-left:auto" />
+        <!-- Step 1: 数据模型下拉 -->
+        <div class="model-select-wrap">
+          <div class="panel-step-label"><span class="step-num">1</span>数据模型</div>
+          <div class="model-dd" @click="modelDropdown = !modelDropdown" @blur.capture="setTimeout(()=>modelDropdown=false,150)" tabindex="0">
+            <AppIcon name="database" :size="14" stroke="var(--brand)" />
+            <span :class="selectedModelId ? 'sel-text' : 'sel-placeholder'">
+              {{ selectedModel?.name || '请选择数据模型...' }}
+            </span>
+            <AppIcon name="chevron-down" :size="13" stroke="var(--text-3)" />
+            <div v-if="modelDropdown && models.length" class="model-dropdown">
+              <div
+                v-for="m in models" :key="m.id"
+                :class="['dd-item', selectedModelId === m.id && 'active']"
+                @mousedown.prevent="selectModel(m.id)"
+              >
+                <AppIcon name="database" :size="13" :stroke="selectedModelId === m.id ? 'var(--brand)' : 'var(--text-3)'" />
+                {{ m.name }}
+                <AppIcon v-if="selectedModelId === m.id" name="check" :size="11" stroke="var(--brand)" style="margin-left:auto" />
+              </div>
+            </div>
+            <div v-if="modelDropdown && !models.length" class="model-dropdown">
+              <div class="dd-empty">当前楼宇暂无数据模型</div>
             </div>
           </div>
-          <div v-if="modelDropdown && !models.length" class="model-dropdown">
-            <div class="dd-empty">当前楼宇暂无数据模型</div>
-          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- ── 主体：节点树 + 预览 ── -->
-    <div class="main-body">
-
-      <!-- 左：节点树 -->
-      <div class="tree-panel">
-        <div class="panel-head">
-          <span class="step-num">2</span>选择模型节点
-        </div>
+        <!-- Step 2: 节点树 -->
+        <div class="panel-step-label"><span class="step-num">2</span>选择模型节点</div>
         <div class="tree-body" v-if="selectedModel">
           <div v-for="group in selectedModel.nodes" :key="group.id" class="tree-section">
             <div class="tree-group" @click="toggleGroup(group.id)">
@@ -192,7 +186,6 @@ watch(selectedNodeId, () => {
           <div class="data-source">来源：{{ selectedModel?.name }} · {{ selectedNodeId }} · 采样 15min</div>
         </template>
       </div>
-    </div>
 
   </div>
 
@@ -203,20 +196,16 @@ watch(selectedNodeId, () => {
 </template>
 
 <style scoped>
-.step-data { display: flex; flex-direction: column; gap: 16px; }
+.step-data { display: grid; grid-template-columns: 300px 1fr; gap: 14px; min-height: 480px; }
 
-/* 顶部栏 */
-.top-bar { display: flex; align-items: center; gap: 20px; }
-.building-hint {
-  display: flex; align-items: center; gap: 7px;
-  padding: 7px 12px; border-radius: 7px; font-size: 12px;
-  background: #f0f6ff; border: 1px solid var(--line); color: var(--text-1); flex-shrink: 0;
+/* 节点树面板 */
+.tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 0; }
+.panel-step-label {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--text-0);
+  border-bottom: 1px solid var(--line); background: #f6f9ff; flex-shrink: 0;
 }
-.building-hint.warn { background: #fffbf0; border-color: rgba(234,140,46,0.3); }
-
-/* 数据模型下拉 */
-.model-select-wrap { display: flex; align-items: center; gap: 10px; flex: 1; }
-.sel-label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--text-0); flex-shrink: 0; }
+.model-select-wrap { padding: 10px 10px 0; flex-shrink: 0; }
 .model-dd {
   position: relative; display: flex; align-items: center; gap: 9px;
   padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px;
@@ -247,14 +236,10 @@ watch(selectedNodeId, () => {
 }
 
 /* 主体 */
-.main-body { display: grid; grid-template-columns: 280px 1fr; gap: 14px; min-height: 440px; }
 
 /* 节点树面板 */
 .tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-.panel-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 9px 14px; background: #f6f9ff; border-bottom: 1px solid var(--line);
-  font-size: 13px; font-weight: 600; color: var(--text-0); flex-shrink: 0;
 }
 .tree-body { flex: 1; overflow-y: auto; padding: 8px; }
 .tree-empty { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-3); padding: 20px; text-align: center; }

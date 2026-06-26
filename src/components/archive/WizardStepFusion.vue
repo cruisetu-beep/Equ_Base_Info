@@ -91,29 +91,6 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
           <span v-if="data.code" class="success-code">{{ data.code }}</span>
         </div>
       </div>
-      <div class="success-stats">
-        <div class="stat-item">
-          <div class="stat-val">{{ paramCount }}</div>
-          <div class="stat-label">参数录入</div>
-        </div>
-        <div class="stat-div"></div>
-        <div class="stat-item">
-          <div class="stat-val">{{ docCount }}</div>
-          <div class="stat-label">文件归档</div>
-        </div>
-        <div class="stat-div"></div>
-        <div class="stat-item">
-          <div class="stat-val" :style="{ color: hasDataLink ? 'var(--ok)' : 'var(--text-3)' }">
-            {{ hasDataLink ? '已接入' : '未配置' }}
-          </div>
-          <div class="stat-label">数据接入</div>
-        </div>
-        <div class="stat-div"></div>
-        <div class="stat-item">
-          <div class="stat-val">{{ doneCount }}/{{ steps.length }}</div>
-          <div class="stat-label">步骤完成</div>
-        </div>
-      </div>
       <div class="success-time">{{ new Date().toLocaleString('zh-CN') }}</div>
     </div>
 

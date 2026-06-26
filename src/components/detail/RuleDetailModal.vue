@@ -74,22 +74,24 @@ const elimColor = computed(() => {
           <!-- 设备信息 -->
           <div class="section">
             <div class="section-title">设备信息</div>
-            <div class="fields">
+            <div class="fields fields-2">
               <div class="field full">
                 <span class="l">设备名称</span>
                 <span class="v">{{ rule.product }}</span>
               </div>
-              <div class="field">
-                <span class="l">设备分类</span>
-                <span class="v">{{ rule.typeK === 'motor' ? '电动机' : rule.typeK === 'fan' ? '风机' : rule.typeK === 'pump' ? '泵' : rule.typeK === 'transformer' ? '变压器' : rule.typeK === 'compressor' ? '压缩机' : rule.typeK === 'boiler' ? '锅炉' : rule.typeK === 'welder' ? '焊机' : rule.typeK }}</span>
-              </div>
-              <div class="field">
-                <span class="l">设备分类详细</span>
-                <span class="v">{{ rule.subType || '—' }}</span>
-              </div>
-              <div class="field" v-if="rule.modelPattern?.length">
-                <span class="l">设备系列</span>
-                <span class="v mono">{{ rule.modelPattern.join(' / ') }}</span>
+              <div class="fields fields-3 full-grid">
+                <div class="field">
+                  <span class="l">设备分类</span>
+                  <span class="v">{{ rule.typeK === 'motor' ? '电动机' : rule.typeK === 'fan' ? '风机' : rule.typeK === 'pump' ? '泵' : rule.typeK === 'transformer' ? '变压器' : rule.typeK === 'compressor' ? '压缩机' : rule.typeK === 'boiler' ? '锅炉' : rule.typeK === 'welder' ? '焊机' : rule.typeK }}</span>
+                </div>
+                <div class="field">
+                  <span class="l">设备分类详细</span>
+                  <span class="v">{{ rule.subType || '—' }}</span>
+                </div>
+                <div class="field" v-if="rule.modelPattern?.length">
+                  <span class="l">设备系列</span>
+                  <span class="v mono">{{ rule.modelPattern.join(' / ') }}</span>
+                </div>
               </div>
               <div class="field full model-list" v-if="rule.modelPattern?.length">
                 <span class="l">设备系列清单</span>
@@ -182,13 +184,18 @@ const elimColor = computed(() => {
   letter-spacing: 0.05em; text-transform: uppercase;
   padding: 6px 14px; background: #f6f9ff; border-bottom: 1px solid var(--line);
 }
-.fields { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; }
+.fields-3 { grid-template-columns: 1fr 1fr 1fr; }
+.full-grid { grid-column: 1 / -1; border-top: 1px solid var(--line); }
 .field {
   display: flex; flex-direction: column; gap: 3px;
   padding: 9px 14px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
   background: #fff;
 }
-.field:nth-child(3n) { border-right: none; background: #fafbff; }
+.field:nth-child(even) { background: #fafbff; }
+.fields-3 .field:nth-child(3n) { border-right: none; }
+.fields-3 .field:nth-child(even) { background: #fff; }
+.fields-3 .field:nth-child(3n-1) { background: #fafbff; }
 .field.full { grid-column: 1 / -1; border-right: none; }
 .field .l { font-size: 10px; color: var(--text-3); }
 .field .v { font-size: 12px; color: var(--text-0); line-height: 1.5; white-space: pre-line; }

@@ -1,257 +1,265 @@
 <script setup>
-// ── components/archive/WizardStepFusion.vue ───────────────────────
-import { ref, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP } from '@/data/devices'
-import { randomFusionLog, tsNow } from '@/utils/logHelpers'
 
 const props = defineProps({ data: { type: Object, required: true } })
-defineEmits(['next', 'prev'])
+const emit  = defineEmits(['next', 'prev'])
 
-const PHASES = [
-  { n: '实体抽取与去重',  d: '识别铭牌字段 + 文档实体，与现有图谱合并' },
-  { n: '关系推断与连边',  d: '建立设备-建筑-子系统-标准的层级关系' },
-  { n: '向量化 / 索引',   d: '对所有切片生成语义向量，写入向量库' },
-  { n: '规则与标准链接',  d: '链接到《淘汰目录》《能效限值》等知识' },
-  { n: '质量校验 / 发布', d: '图谱一致性检查，发布为可查询版本' },
-]
+const devType = computed(() => DEV_TYPE_MAP[props.data.typeK] || DEV_TYPE_MAP.other)
 
-const NODE_COLORS = { device: '#4dc9ff', field: '#a799ff', doc: '#ff8a47', standard: '#ffb547', similar: '#2bd9a8' }
-const NODE_LABELS = { device: '设备实体', field: '铭牌字段', doc: '文档片段', standard: '关联标准', similar: '相似设备' }
+const paramCount = computed(() =>
+  (props.data.paramGroups || []).flatMap(g => g.items || []).filter(i => i.name?.trim()).length
+)
+const paramSample = computed(() =>
+  (props.data.paramGroups || []).flatMap(g => g.items || [])
+    .filter(i => i.name?.trim()).slice(0, 3).map(i => i.name)
+)
+const paramExtra = computed(() => Math.max(0, paramCount.value - 3))
 
-const progress = ref(0)
-const phase    = ref(0)
-const stats    = ref({ entities: 0, edges: 0, vectors: 0, rules: 0 })
-const nodes    = ref([])
-const edges    = ref([])
-const logs     = ref([])
-const done     = ref(false)
+const docCounts = computed(() => {
+  const docs = props.data.docs || {}
+  const labels = { device:'设备照片', site:'现场照片', archive:'设备档案', maintain:'维保记录', monitor:'监测报告', other:'其他文件' }
+  return Object.entries(docs)
+    .filter(([, arr]) => arr?.length)
+    .map(([k, arr]) => `${labels[k] || k} ${arr.length}`)
+})
+const docTotal = computed(() =>
+  Object.values(props.data.docs || {}).reduce((n, arr) => n + (arr?.length || 0), 0)
+)
 
-// 进度推进
-const progTimer = setInterval(() => {
-  if (done.value) return
-  progress.value = Math.min(100, progress.value + 1.0)
-  phase.value    = Math.min(4, Math.floor(progress.value / 20))
-  if (progress.value >= 100) {
-    done.value = true
-    clearInterval(progTimer)
-  }
-}, 80)
-
-// 统计计数
-const statsTimer = setInterval(() => {
-  if (done.value) return
-  stats.value = {
-    entities: Math.min(86,   stats.value.entities + Math.floor(Math.random() * 2 + 1)),
-    edges:    Math.min(168,  stats.value.edges    + Math.floor(Math.random() * 4 + 1)),
-    vectors:  Math.min(1240, stats.value.vectors  + Math.floor(Math.random() * 30 + 8)),
-    rules:    Math.min(12,   stats.value.rules    + (Math.random() < 0.25 ? 1 : 0)),
-  }
-}, 200)
-
-// 节点生长
-const nodeTimer = setInterval(() => {
-  if (done.value) return
-  if (nodes.value.length < 38) {
-    const types = ['device', 'field', 'doc', 'standard', 'similar']
-    const t = nodes.value.length === 0 ? 'device' : types[1 + Math.floor(Math.random() * 4)]
-    const a = Math.random() * Math.PI * 2
-    const r = 8 + Math.random() * 32
-    nodes.value = [...nodes.value, { id: nodes.value.length, t, x: 50 + Math.cos(a) * r, y: 50 + Math.sin(a) * r * 0.62 }]
-  }
-  if (nodes.value.length >= 2 && edges.value.length < 60) {
-    const a = Math.floor(Math.random() * nodes.value.length)
-    let b = Math.floor(Math.random() * nodes.value.length)
-    while (b === a && nodes.value.length > 1) b = Math.floor(Math.random() * nodes.value.length)
-    edges.value = [...edges.value, { a, b }]
-  }
-}, 200)
-
-// 融合日志
-const logTimer = setInterval(() => {
-  if (done.value) return
-  const ev = randomFusionLog(phase.value, props.data)
-  logs.value = [...logs.value, { ts: tsNow(), ...ev }].slice(-30)
-}, 480)
-
-onUnmounted(() => {
-  clearInterval(progTimer)
-  clearInterval(statsTimer)
-  clearInterval(nodeTimer)
-  clearInterval(logTimer)
+const hasDataLink = computed(() => !!props.data.dataNodeId)
+const dataLabel = computed(() => {
+  if (!hasDataLink.value) return ''
+  return `${props.data.dataModelId || ''} · ${props.data.dataNodeId}`
 })
 
-// 随机同型号数量（固定到首次渲染，避免闪烁）
-const sameModelCount = Math.floor(2 + Math.random() * 6)
+const doneCount = computed(() => [
+  !!(props.data.name || props.data.code),
+  paramCount.value > 0,
+  docTotal.value > 0,
+  hasDataLink.value,
+].filter(Boolean).length)
+
+const THEMES = [
+  { iconBg:'#eaf3fc', iconStroke:'#5a8fd8', accentBg:'#f3f9fe', accentBorder:'#8fbcf0', accentText:'#3973c4' },
+  { iconBg:'#e6f7ee', iconStroke:'#16a34a', accentBg:'#f3fbf6', accentBorder:'#22c55e', accentText:'#15803d' },
+  { iconBg:'#e6f4f2', iconStroke:'#4ba89d', accentBg:'#f2faf9', accentBorder:'#74c5bb', accentText:'#15837a' },
+  { iconBg:'#faf1e0', iconStroke:'#d29a52', accentBg:'#fdf9f0', accentBorder:'#f0c886', accentText:'#b67b32' },
+]
 </script>
 
 <template>
-  <div class="step-fusion float-in">
+  <div class="fusion-wrap">
 
-    <!-- 左：融合阶段列表 -->
-    <div class="gr-side">
-      <h4><AppIcon name="graph" :size="16" stroke="var(--brand)" /> 融合阶段</h4>
-      <div
-        v-for="(p, i) in PHASES" :key="i"
-        :class="['gr-phase', phase === i && !done && 'active', (phase > i || done) && 'done']"
-      >
-        <div class="num">
-          <AppIcon v-if="phase > i || done" name="check" :size="11" />
-          <template v-else>{{ i + 1 }}</template>
+    <!-- 成功横幅 -->
+    <div class="banner">
+      <div class="banner-icon">
+        <div class="icon-outer">
+          <div class="icon-inner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
         </div>
-        <div class="info">
-          <div class="n">{{ p.n }}</div>
-          <div class="d">{{ p.d }}</div>
-        </div>
+      </div>
+      <div class="banner-title">设备信息录入完成</div>
+      <div class="banner-pill">
+        <span class="pill-num">{{ doneCount }}</span>
+        <span class="pill-text">/ 4 项完成</span>
       </div>
     </div>
 
-    <!-- 中：知识图谱画布 -->
-    <div class="gr-canvas">
-      <div class="gr-head">
-        <div class="ai-orb" style="width:30px;height:30px" />
-        <div>
-          <h4>{{ done ? '图谱融合完成' : '知识图谱构建中…' }}</h4>
-          <div class="sub">FusionEngine · 实时入图谱</div>
+    <!-- 四张步骤卡片 2×2 -->
+    <div class="cards-grid">
+
+      <!-- STEP 1 基础信息 -->
+      <div class="step-card">
+        <div class="card-top">
+          <div class="card-icon" :style="{ background: THEMES[0].iconBg }">
+            <AppIcon name="cube" :size="30" :stroke="THEMES[0].iconStroke" />
+          </div>
+          <div class="card-title-wrap">
+            <div class="card-step">STEP 1</div>
+            <div class="card-title">基础信息</div>
+          </div>
+          <div class="done-badge">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            已完成
+          </div>
         </div>
-        <div class="gr-progress">
-          <span>{{ Math.round(progress) }}%</span>
-          <div class="bar"><div class="fill" :style="{ width: `${progress}%` }" /></div>
-        </div>
-      </div>
-
-      <svg class="gr-svg" viewBox="0 0 100 70">
-        <defs>
-          <radialGradient id="bg-glow-2" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="rgba(77,201,255,0.10)"/>
-            <stop offset="100%" stop-color="rgba(77,201,255,0)"/>
-          </radialGradient>
-        </defs>
-        <rect width="100" height="70" fill="url(#bg-glow-2)"/>
-        <ellipse v-for="(r, i) in [12, 22, 30]" :key="i"
-                 cx="50" cy="35" :rx="r" :ry="r * 0.62"
-                 fill="none" stroke="rgba(77,201,255,0.10)" stroke-width="0.15" stroke-dasharray="0.4 0.6"/>
-        <template v-for="(e, i) in edges" :key="i">
-          <line v-if="nodes[e.a] && nodes[e.b]"
-                :x1="nodes[e.a].x" :y1="nodes[e.a].y * 0.7"
-                :x2="nodes[e.b].x" :y2="nodes[e.b].y * 0.7"
-                stroke="rgba(77,201,255,0.30)" stroke-width="0.18" stroke-dasharray="0.5 0.5"/>
-        </template>
-        <g v-for="(n, i) in nodes" :key="i"
-           style="animation: node-pop 0.4s ease forwards"
-           :style="{ transformOrigin: `${n.x}px ${n.y * 0.7}px` }">
-          <circle :cx="n.x" :cy="n.y * 0.7" :r="n.t === 'device' ? 1.6 : 0.9"
-                  :fill="NODE_COLORS[n.t]" opacity="0.85"
-                  style="filter: drop-shadow(0 0 1.5px rgba(255,255,255,0.5))"/>
-          <circle v-if="n.t === 'device'"
-                  :cx="n.x" :cy="n.y * 0.7" r="2.6"
-                  fill="none" :stroke="NODE_COLORS[n.t]" stroke-width="0.2" opacity="0.5"
-                  style="animation: orb-pulse 2s ease-in-out infinite"/>
-        </g>
-      </svg>
-
-      <div class="gr-legend">
-        <span v-for="(label, k) in NODE_LABELS" :key="k" class="item" :style="{ '--cl': NODE_COLORS[k] }">
-          <span class="dot" /> {{ label }}
-        </span>
-      </div>
-
-      <div class="gr-stats">
-        <div class="s" style="--cl:#4dc9ff"><div class="v">{{ stats.entities }}</div><div class="l">图谱节点</div></div>
-        <div class="s" style="--cl:#a799ff"><div class="v">{{ stats.edges }}</div><div class="l">关系边</div></div>
-        <div class="s" style="--cl:#2bd9a8"><div class="v">{{ stats.vectors }}</div><div class="l">向量片段</div></div>
-        <div class="s" style="--cl:#ffb547"><div class="v">{{ stats.rules }}</div><div class="l">关联规则</div></div>
-      </div>
-
-      <div class="gr-log">
-        <div v-for="(l, i) in logs.slice(-4)" :key="i">
-          <span class="ts">{{ l.ts }}</span>
-          <span :class="`lv-${l.lv}`">[{{ l.lv.toUpperCase() }}]</span> {{ l.msg }}
-        </div>
-      </div>
-    </div>
-
-    <!-- 右：融合摘要 -->
-    <div class="gr-side">
-      <h4><AppIcon name="info" :size="16" stroke="var(--brand)" /> 融合摘要</h4>
-      <div style="font-size:12px;color:var(--text-1);line-height:1.7">
-        <div style="margin-bottom:10px">设备：<strong style="color:var(--text-0)">{{ data.name || '—' }}</strong></div>
-        <div style="margin-bottom:10px">类型：<strong style="color:var(--text-0)">{{ DEV_TYPE_MAP[data.typeK]?.label || '—' }} / {{ data.type2 || '—' }}</strong></div>
-        <div style="margin-bottom:10px">型号：<span class="mono" style="color:var(--text-0)">{{ data.model || '—' }}</span></div>
-        <div style="margin-bottom:10px">建筑：<strong style="color:var(--text-0)">{{ data.building || '—' }}</strong></div>
-        <div style="padding:10px 12px;background:#f5f9ff;border-radius:8px;margin-top:14px;border:1px solid var(--line)">
-          <div style="font-size:11px;color:var(--text-2);margin-bottom:6px">已链接到知识图谱：</div>
-          <div class="mono" style="font-size:11px;color:var(--text-1);line-height:1.8">
-            ▸ 建筑实体（同 {{ data.building || '—' }}）<br/>
-            ▸ 设备类型节点（{{ DEV_TYPE_MAP[data.typeK]?.label || '—' }}）<br/>
-            ▸ 同型号设备 {{ sameModelCount }} 台<br/>
-            ▸ 关联国标 GB18613 / GB20052 / GB/T17981
+        <div class="accent-block" :style="{ background: THEMES[0].accentBg, borderLeftColor: THEMES[0].accentBorder }">
+          <div class="accent-intro">设备基础信息已登记</div>
+          <div class="accent-main" :style="{ color: THEMES[0].accentText }">{{ data.name || '—' }}</div>
+          <div class="accent-sub">
+            <span class="info-pill" style="background:#eaf3fc; color:#4a82d2">归属 {{ data.building || '—' }}</span>
+            <span style="color:#475569">编号 {{ data.code || '—' }}</span>
           </div>
         </div>
       </div>
 
-      <div v-if="done" class="complete-banner">
-        <div class="ok-orb"><AppIcon name="check" :size="16" /></div>
-        <div>
-          <div class="h">设备档案已成功入库</div>
-          <div class="d">已加入知识图谱，可参与判定</div>
+      <!-- STEP 2 设备参数 -->
+      <div class="step-card">
+        <div class="card-top">
+          <div class="card-icon" :style="{ background: THEMES[1].iconBg }">
+            <AppIcon name="bolt" :size="30" :stroke="THEMES[1].iconStroke" />
+          </div>
+          <div class="card-title-wrap">
+            <div class="card-step">STEP 2</div>
+            <div class="card-title">设备参数</div>
+          </div>
+          <div class="done-badge">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            已完成
+          </div>
+        </div>
+        <div class="accent-block" :style="{ background: THEMES[1].accentBg, borderLeftColor: THEMES[1].accentBorder }">
+          <div class="accent-intro">运行参数已全部录入</div>
+          <div class="accent-main" :style="{ color: THEMES[1].accentText }">
+            {{ paramCount }}<span class="accent-unit">项</span>
+          </div>
+          <div class="accent-sub tag-row">
+            <span v-for="t in paramSample" :key="t" class="param-tag" :style="{ background: THEMES[1].iconBg, color: '#475569' }">{{ t }}</span>
+            <span v-if="paramExtra > 0" class="param-tag" style="background:#eef4ef; color:#94a3b8">+{{ paramExtra }}</span>
+            <span v-if="paramCount === 0" style="color:#94a3b8; font-size:12px">暂无参数</span>
+          </div>
         </div>
       </div>
 
-      <div class="form-actions" style="margin-top:14px;padding:14px 0 0;border-top:1px solid var(--line);background:transparent;border-radius:0">
-        <button class="btn ghost" @click="$emit('prev')">
-          <AppIcon name="chevron-left" :size="14" /> 上一步
-        </button>
-        <button class="btn primary" @click="$emit('next')">
-          完成 · 返回总览 <AppIcon name="check" :size="14" />
-        </button>
+      <!-- STEP 3 档案资料 -->
+      <div class="step-card">
+        <div class="card-top">
+          <div class="card-icon" :style="{ background: THEMES[2].iconBg }">
+            <AppIcon name="database" :size="30" :stroke="THEMES[2].iconStroke" />
+          </div>
+          <div class="card-title-wrap">
+            <div class="card-step">STEP 3</div>
+            <div class="card-title">档案资料</div>
+          </div>
+          <div class="done-badge">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            已完成
+          </div>
+        </div>
+        <div class="accent-block" :style="{ background: THEMES[2].accentBg, borderLeftColor: THEMES[2].accentBorder }">
+          <div class="accent-intro">相关档案资料已上传</div>
+          <div class="accent-main" :style="{ color: THEMES[2].accentText }">
+            {{ docTotal }}<span class="accent-unit">份</span>
+          </div>
+          <div class="accent-sub">{{ docCounts.join(' · ') || '暂未上传' }}</div>
+        </div>
       </div>
+
+      <!-- STEP 4 数据接入 -->
+      <div class="step-card">
+        <div class="card-top">
+          <div class="card-icon" :style="{ background: THEMES[3].iconBg }">
+            <AppIcon name="panel" :size="30" :stroke="THEMES[3].iconStroke" />
+          </div>
+          <div class="card-title-wrap">
+            <div class="card-step">STEP 4</div>
+            <div class="card-title">数据接入</div>
+          </div>
+          <div class="done-badge" v-if="hasDataLink">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            已完成
+          </div>
+          <div class="skip-badge" v-else>未配置</div>
+        </div>
+        <div class="accent-block" :style="{ background: THEMES[3].accentBg, borderLeftColor: THEMES[3].accentBorder }">
+          <div class="accent-intro">
+            <span v-if="hasDataLink" class="green-dot"></span>
+            {{ hasDataLink ? '实时运行数据已接入' : '暂未配置数据接入' }}
+          </div>
+          <div class="accent-main" :style="{ color: THEMES[3].accentText, fontFamily: 'JetBrains Mono, monospace' }">
+            {{ hasDataLink ? dataLabel : '—' }}
+          </div>
+          <div class="accent-sub">{{ hasDataLink ? '已绑定数据模型节点' : '可在运行数据接入步骤配置' }}</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <style scoped>
-.step-fusion { display: grid; grid-template-columns: 280px 1fr 320px; gap: 20px; }
+.fusion-wrap { display: flex; flex-direction: column; gap: 12px; }
 
-.gr-side { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 18px; height: fit-content; box-shadow: 0 1px 2px rgba(60,110,200,0.04); }
-.gr-side h4 { font-size: 13px; margin: 0 0 14px; color: var(--text-0); display: flex; align-items: center; gap: 8px; }
-.gr-phase { padding: 11px 12px; margin-bottom: 8px; border-radius: 8px; background: #f8faff; border: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-start; transition: all 0.3s; }
-.gr-phase.active { background: linear-gradient(180deg, #eaf2ff, #f5f9ff); border-color: var(--brand); box-shadow: 0 4px 12px rgba(47,127,255,0.12); }
-.gr-phase.done { border-color: rgba(24,165,114,0.30); background: #effaf5; }
-.gr-phase .num { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; flex-shrink: 0; background: white; border: 1px solid var(--line); font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-2); }
-.gr-phase.active .num { background: linear-gradient(135deg, var(--brand), var(--brand-2)); border-color: transparent; color: white; }
-.gr-phase.done   .num { background: rgba(24,165,114,0.10); border-color: var(--ok); color: var(--ok); }
-.gr-phase .info .n { font-size: 12px; color: var(--text-0); font-weight: 500; }
-.gr-phase .info .d { font-size: 10.5px; color: var(--text-2); margin-top: 2px; line-height: 1.4; }
+/* 横幅 */
+.banner {
+  display: flex; align-items: center; gap: 16px;
+  background: #fff; border: 1px solid #eceff3; border-radius: 14px;
+  padding: 12px 20px; box-shadow: 0 8px 28px -20px rgba(15,23,42,.35);
+}
+.icon-outer {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #e6f7ee; display: grid; place-items: center; flex-shrink: 0;
+}
+.icon-inner {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #16a34a);
+  box-shadow: 0 4px 10px -4px rgba(22,163,74,.6);
+  display: grid; place-items: center;
+}
+.banner-title { font-size: 16px; font-weight: 700; color: #0f172a; flex: 1; }
+.banner-pill {
+  display: flex; align-items: baseline; gap: 4px;
+  background: #ecfdf3; border: 1px solid #c7eed5;
+  padding: 6px 14px; border-radius: 999px; flex-shrink: 0;
+}
+.pill-num { font-size: 16px; font-weight: 800; color: #16a34a; }
+.pill-text { font-size: 12px; font-weight: 600; color: #15803d; }
 
-.gr-canvas { background: linear-gradient(180deg, #0f1d3d, #1a2a55); border: 1px solid #1a2950; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; min-height: 540px; color: #eaf2ff; }
-.gr-canvas::before { content:""; position:absolute; inset:0; background-image: radial-gradient(circle at 50% 50%, rgba(47,127,255,0.12), transparent 70%); pointer-events: none; }
-.gr-head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 14px; position: relative; }
-.gr-head h4 { margin: 0; font-size: 14px; color: #eaf2ff; }
-.gr-head .sub { font-size: 11px; color: #8da3c8; font-family: "JetBrains Mono", monospace; }
-.gr-progress { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11px; color: #8da3c8; font-family: "JetBrains Mono", monospace; }
-.gr-progress .bar { width: 120px; height: 4px; background: rgba(255,255,255,0.10); border-radius: 2px; overflow: hidden; }
-.gr-progress .bar .fill { height: 100%; background: linear-gradient(90deg, #4dc9ff, #2bd9a8); transition: width 0.3s; }
+/* 卡片网格 */
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.step-card {
+  background: #fff; border: 1px solid #eceff3; border-radius: 12px;
+  padding: 14px 16px; box-shadow: 0 8px 28px -22px rgba(15,23,42,.35);
+  display: flex; flex-direction: column;
+}
 
-.gr-svg { width: 100%; height: 360px; position: relative; z-index: 1; }
-.gr-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
-.gr-stats .s { padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(77,201,255,0.20); text-align: center; }
-.gr-stats .s .v { font-family: "Orbitron", sans-serif; font-size: 22px; font-weight: 600; color: var(--cl, #4dc9ff); }
-.gr-stats .s .l { font-size: 10px; color: #8da3c8; margin-top: 2px; }
+/* 卡片顶部 */
+.card-top { display: flex; align-items: center; gap: 12px; }
+.card-icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+.card-title-wrap { flex: 1; }
+.card-step { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1.5px; }
+.card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 2px; }
 
-.gr-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 10px; background: rgba(0,0,0,0.18); border-radius: 6px; margin-top: 10px; font-size: 10.5px; color: #8da3c8; font-family: "JetBrains Mono", monospace; }
-.gr-legend .item { display: inline-flex; align-items: center; gap: 5px; }
-.gr-legend .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cl); display: inline-block; }
+.done-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #ecfdf3; color: #16a34a; font-size: 13px; font-weight: 700;
+  padding: 6px 12px; border-radius: 999px; flex-shrink: 0;
+}
+.skip-badge {
+  background: #f1f5f9; color: #94a3b8; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; flex-shrink: 0;
+}
 
-@keyframes node-pop { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+/* 高亮信息块 */
+.accent-block {
+  margin-top: 8px; border-radius: 0 8px 8px 0;
+  padding: 10px 12px; border-left: 3px solid;
+  display: flex; flex-direction: column; gap: 10px; flex: 1;
+}
+.accent-intro { font-size: 11px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
+.accent-main { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.accent-unit { font-size: 14px; font-weight: 600; margin-left: 4px; opacity: 0.85; }
+.accent-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #475569; }
 
-.gr-log { background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px 10px; font-family: "JetBrains Mono", monospace; font-size: 10px; max-height: 80px; overflow-y: auto; margin-top: 10px; line-height: 1.6; color: #c5d3ed; }
-.gr-log .ts { color: #6a7da3; margin-right: 6px; }
-.gr-log .lv-info { color: #4dc9ff; }
-.gr-log .lv-ok   { color: #2bd9a8; }
+.info-pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.tag-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.param-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; }
 
-.complete-banner { padding: 14px 18px; margin-top: 12px; background: linear-gradient(90deg, rgba(43,217,168,0.12), rgba(43,217,168,0.02)); border: 1px solid rgba(43,217,168,0.40); border-radius: 10px; display: flex; align-items: center; gap: 12px; }
-.complete-banner .ok-orb { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2bd9a8, #18a572); display: grid; place-items: center; color: white; flex-shrink: 0; box-shadow: 0 0 16px rgba(43,217,168,0.4); }
-.complete-banner .h { font-size: 13px; font-weight: 600; color: var(--text-0); }
-.complete-banner .d { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.green-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.22);
+}
 </style>

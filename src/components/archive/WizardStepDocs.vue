@@ -4,33 +4,43 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { tsNow, randomTags, randomDocLog, tokenizeDocLog } from '@/utils/logHelpers'
 
-const props = defineProps({ data: { type: Object, required: true } })
+const props = defineProps({
+  data: { type: Object, required: true },
+  stages: {
+    type: Array,
+    default: () => [
+      { n: 'OCR · 文本抽取',  k: 1 },
+      { n: '语义切片',         k: 2 },
+      { n: '实体识别 / 标签',  k: 3 },
+      { n: '向量化 / 入图谱',  k: 4 },
+    ],
+  },
+})
+const STAGES = computed(() => props.stages)
 const emit  = defineEmits(['update:data', 'next', 'prev'])
 
 const DOC_CATEGORIES = [
-  { k: 'photo',    n: '现场照片',   icon: 'eye',      color: '#4dc9ff', desc: '设备外观、安装环境、铭牌特写' },
-  { k: 'manual',   n: '使用说明书', icon: 'doc',      color: '#7a5cff', desc: '产品说明书 / 技术参数手册' },
-  { k: 'archive',  n: '设备档案',   icon: 'database', color: '#2bd9a8', desc: '采购合同 / 验收报告 / 试运行记录' },
-  { k: 'maintain', n: '维保记录',   icon: 'settings', color: '#ffb547', desc: '维修工单 / 保养记录 / 故障日志' },
-  { k: 'test',     n: '检测报告',   icon: 'sparkles', color: '#ff8a47', desc: '能效检测 / 第三方测试报告' },
+  { k: 'device',   n: '设备照片',   icon: 'eye',      color: '#4dc9ff', desc: '设备外观、铭牌特写等照片' },
+  { k: 'site',     n: '现场照片',   icon: 'scan',     color: '#2bd9a8', desc: '安装环境、现场全景照片' },
+  { k: 'archive',  n: '设备档案',   icon: 'database', color: '#7a5cff', desc: '采购合同、验收报告、试运行记录' },
+  { k: 'maintain', n: '维保记录',   icon: 'settings', color: '#ffb547', desc: '维修工单、保养记录、故障日志' },
+  { k: 'monitor',  n: '监测报告',   icon: 'sparkles', color: '#ff8a47', desc: '能效检测、运行监测、第三方报告' },
+  { k: 'other',    n: '其他文件',   icon: 'doc',      color: '#8a9bbf', desc: '其他相关文件资料' },
 ]
 
 const SAMPLE_FILES_FOR = {
-  photo:    [{ name: '设备外观-正面.jpg', size: 2840 }, { name: '设备铭牌-特写.jpg', size: 1620 }, { name: '安装环境-机房全景.jpg', size: 3120 }],
-  manual:   [{ name: 'Y2 系列电动机使用说明书.pdf', size: 4820 }, { name: '技术参数手册-第3版.pdf', size: 2340 }],
+  device:   [{ name: '设备外观-正面.jpg', size: 2840 }, { name: '设备铭牌-特写.jpg', size: 1620 }],
+  site:     [{ name: '安装环境-机房全景.jpg', size: 3120 }, { name: '现场安装照片.jpg', size: 2240 }],
   archive:  [{ name: '采购合同-2008.pdf', size: 1240 }, { name: '出厂检验报告.pdf', size: 980 }, { name: '现场验收记录.docx', size: 560 }],
   maintain: [{ name: '2023年度维保记录.xlsx', size: 720 }, { name: '故障维修工单合集.pdf', size: 1840 }],
-  test:     [{ name: '电机能效检测报告-2023.pdf', size: 1560 }],
+  monitor:  [{ name: '电机能效检测报告-2023.pdf', size: 1560 }],
+  other:    [],
 }
 
-const STAGES = [
-  { n: 'OCR · 文本抽取',  k: 1 },
-  { n: '语义切片',         k: 2 },
-  { n: '实体识别 / 标签',  k: 3 },
-  { n: '向量化 / 入图谱',  k: 4 },
-]
 
-const activeCat = ref('photo')
+
+
+const activeCat = ref('device')
 const docs      = ref({ ...(props.data.docs || {}) })
 const logs      = ref([{ ts: tsNow(), lv: 'info', msg: 'AI 文档解析引擎就绪 · 等待文档输入…' }])
 
@@ -83,6 +93,12 @@ function addDocs(catK, files) {
   }))
   docs.value = { ...docs.value, [catK]: [...(docs.value[catK] || []), ...newItems] }
   logs.value = [...logs.value, { ts: tsNow(), lv: 'info', msg: `接收到 ${newItems.length} 份新文档 → 投入 OCR 队列` }]
+}
+
+function previewFile(doc) {
+  // 真实文件用 doc.url，mock 数据用文件名搜索演示
+  const url = doc.url || `https://www.google.com/search?q=${encodeURIComponent(doc.name)}`
+  window.open(url, '_blank')
 }
 
 function handleSampleAdd(catK) {
@@ -139,14 +155,14 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
       <div class="uploader" @click="handleSampleAdd(activeCat)">
         <div class="icn"><AppIcon name="upload" :size="26" /></div>
         <div class="h">点击上传或拖拽 {{ activeCatInfo.n }}</div>
-        <div class="s">{{ activeCat === 'photo' ? '支持 JPG / PNG，可多张' : '支持 PDF / Word / 图片，单文件 ≤ 50MB' }}</div>
+        <div class="s">{{ ['device','site'].includes(activeCat) ? '支持 JPG / PNG，可多张' : '支持 PDF / Word / 图片，单文件 ≤ 50MB' }}</div>
         <div class="s" style="color:var(--brand);margin-top:6px">
           <AppIcon name="sparkles" :size="11" /> 点击此区域加载示例文档进行演示
         </div>
       </div>
 
       <!-- 照片网格 -->
-      <div v-if="activeCat === 'photo'" class="photo-grid">
+      <div v-if="['device','site'].includes(activeCat)" class="photo-grid">
         <div v-if="activeList.length === 0"
              style="grid-column:1/-1;color:var(--text-3);text-align:center;padding:30px 0;font-size:12px">
           暂无照片
@@ -170,22 +186,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
             <div class="icn"><AppIcon name="doc" :size="14" /></div>
             <div class="info">
               <div class="n">{{ d.name }}</div>
-              <div class="meta">
-                {{ d.size }}KB · {{ d.stage >= 2 ? `${d.chunks} 切片` : '解析中...' }}
-                {{ d.stage >= 4 ? ` · ${d.entities} 实体` : '' }}
-              </div>
+              <div class="meta">{{ d.size }}KB</div>
             </div>
+            <button class="preview-btn" title="预览文件" @click="previewFile(d)">
+              <AppIcon name="eye" :size="14" stroke="var(--brand)" />
+            </button>
             <div class="progress"><div class="progress-fill" :style="{ width: `${d.stage * 25}%` }" /></div>
             <span class="stage-tag">
-              {{ d.stage === 1 ? 'OCR' : d.stage === 2 ? '切片' : d.stage === 3 ? '标注' : '已入图谱' }}
+              {{ STAGES.find(s => s.k === d.stage)?.n?.split('·')[0]?.trim() || '已完成' }}
             </span>
-          </div>
-          <div v-if="d.tags && d.tags.length > 0" class="doc-tags-strip">
-            <span
-              v-for="(t, i) in d.tags" :key="i"
-              class="doc-tag-chip"
-              :style="{ animationDelay: `${i * 0.05}s` }"
-            >#{{ t }}</span>
           </div>
         </template>
       </div>
@@ -242,15 +251,6 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
     </div>
 
     <!-- 底部操作栏 -->
-    <div class="form-actions" style="grid-column: 1 / -1">
-      <div style="font-size:12px;color:var(--text-2);margin-right:auto">
-        已上传 <strong style="color:var(--brand-2)">{{ allDocs.length }}</strong> 份
-      </div>
-      <button class="btn ghost" @click="$emit('prev')"><AppIcon name="chevron-left" :size="14" /> 上一步</button>
-      <button class="btn primary" @click="$emit('next')">
-        下一步 · 运行数据接入 <AppIcon name="chevron-right" :size="14" />
-      </button>
-    </div>
   </div>
 </template>
 
@@ -306,6 +306,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .doc-row .stage-tag { font-size: 10px; font-family: "JetBrains Mono", monospace; padding: 2px 7px; border-radius: 3px; background: rgba(47,127,255,0.10); color: var(--brand); border: 1px solid rgba(47,127,255,0.22); }
 .doc-row.done .stage-tag { background: rgba(43,217,168,0.10); color: var(--ok); border-color: rgba(43,217,168,0.22); }
 .doc-tags-strip { display: flex; gap: 4px; flex-wrap: wrap; padding-left: 38px; padding-right: 12px; padding-top: 4px; }
+.preview-btn {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: white; cursor: pointer; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.15s;
+}
+.doc-row:hover .preview-btn { opacity: 1; }
+.preview-btn:hover { border-color: var(--brand); background: #f0f6ff; }
+
 .doc-tag-chip {
   font-size: 10px; padding: 1px 6px; border-radius: 3px;
   background: rgba(122,92,255,0.08); color: #6a4eff;

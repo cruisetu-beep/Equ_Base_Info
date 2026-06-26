@@ -119,12 +119,11 @@ const THEMES = [
         </div>
         <div class="accent-block" :style="{ background: THEMES[1].accentBg, borderLeftColor: THEMES[1].accentBorder }">
           <div class="accent-intro">运行参数已全部录入</div>
-          <div class="accent-main">
-            <span :style="{ color: THEMES[1].accentText, fontSize: '36px', fontWeight: 800 }">{{ paramCount }}</span>
-            <span style="font-size:15px; font-weight:600; color:#16a34a; margin-left:4px">项</span>
+          <div class="accent-main" :style="{ color: THEMES[1].accentText }">
+            {{ paramCount }}<span class="accent-unit">项</span>
           </div>
           <div class="accent-sub tag-row">
-            <span v-for="t in paramSample" :key="t" class="param-tag" style="background:#e6f7ee; color:#475569">{{ t }}</span>
+            <span v-for="t in paramSample" :key="t" class="param-tag" :style="{ background: THEMES[1].iconBg, color: '#475569' }">{{ t }}</span>
             <span v-if="paramExtra > 0" class="param-tag" style="background:#eef4ef; color:#94a3b8">+{{ paramExtra }}</span>
             <span v-if="paramCount === 0" style="color:#94a3b8; font-size:12px">暂无参数</span>
           </div>
@@ -150,13 +149,10 @@ const THEMES = [
         </div>
         <div class="accent-block" :style="{ background: THEMES[2].accentBg, borderLeftColor: THEMES[2].accentBorder }">
           <div class="accent-intro">相关档案资料已上传</div>
-          <div class="accent-main">
-            <span :style="{ color: THEMES[2].accentText, fontSize: '36px', fontWeight: 800 }">{{ docTotal }}</span>
-            <span style="font-size:15px; font-weight:600; color:#15837a; margin-left:4px">份</span>
+          <div class="accent-main" :style="{ color: THEMES[2].accentText }">
+            {{ docTotal }}<span class="accent-unit">份</span>
           </div>
-          <div class="accent-sub" style="color:#475569; font-size:13px">
-            {{ docCounts.join(' · ') || '暂未上传' }}
-          </div>
+          <div class="accent-sub">{{ docCounts.join(' · ') || '暂未上传' }}</div>
         </div>
       </div>
 
@@ -183,12 +179,10 @@ const THEMES = [
             <span v-if="hasDataLink" class="green-dot"></span>
             {{ hasDataLink ? '实时运行数据已接入' : '暂未配置数据接入' }}
           </div>
-          <div class="accent-main" :style="{ color: THEMES[3].accentText, fontFamily: 'monospace', fontSize: '25px', fontWeight: 800 }">
+          <div class="accent-main" :style="{ color: THEMES[3].accentText, fontFamily: 'JetBrains Mono, monospace' }">
             {{ hasDataLink ? dataLabel : '—' }}
           </div>
-          <div class="accent-sub" style="color:#475569; font-size:13px">
-            {{ hasDataLink ? '已绑定数据模型节点' : '可在运行数据接入步骤配置' }}
-          </div>
+          <div class="accent-sub">{{ hasDataLink ? '已绑定数据模型节点' : '可在运行数据接入步骤配置' }}</div>
         </div>
       </div>
 
@@ -257,6 +251,7 @@ const THEMES = [
 }
 .accent-intro { font-size: 11px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
 .accent-main { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.accent-unit { font-size: 14px; font-weight: 600; margin-left: 4px; opacity: 0.85; }
 .accent-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #475569; }
 
 .info-pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }

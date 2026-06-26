@@ -25,12 +25,19 @@ const SAMPLE_FILES_FOR = {
   other:    [],
 }
 
-const STAGES = [
-  { n: 'OCR · 文本抽取',  k: 1 },
-  { n: '语义切片',         k: 2 },
-  { n: '实体识别 / 标签',  k: 3 },
-  { n: '向量化 / 入图谱',  k: 4 },
-]
+// 解析流水线步骤 — 通过 prop 传入，未来可由后端/配置动态下发
+const props = defineProps({
+  stages: {
+    type: Array,
+    default: () => [
+      { n: 'OCR · 文本抽取',  k: 1 },
+      { n: '语义切片',         k: 2 },
+      { n: '实体识别 / 标签',  k: 3 },
+      { n: '向量化 / 入图谱',  k: 4 },
+    ],
+  },
+})
+const STAGES = computed(() => props.stages)
 
 const activeCat = ref('device')
 const docs      = ref({ ...(props.data.docs || {}) })
@@ -185,7 +192,7 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
             </button>
             <div class="progress"><div class="progress-fill" :style="{ width: `${d.stage * 25}%` }" /></div>
             <span class="stage-tag">
-              {{ d.stage === 1 ? 'OCR' : d.stage === 2 ? '切片' : d.stage === 3 ? '标注' : '已入图谱' }}
+              {{ STAGES.find(s => s.k === d.stage)?.n?.split('·')[0]?.trim() || '已完成' }}
             </span>
           </div>
         </template>

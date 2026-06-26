@@ -103,7 +103,7 @@ function updatePkg(val) { pkg.value = val }
 .wizard-body {
   display: flex;
   flex-direction: column;
-  height: 580px;
+  height: 760px;
   box-sizing: border-box;
 }
 .wizard-content {

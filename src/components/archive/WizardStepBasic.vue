@@ -93,18 +93,8 @@ function onOcrDone(ocr) {
 const typeOptions = DEV_TYPES.slice(0, 8)
 
 // 必填校验
-function validate() {
-  const e = {}
-  if (!pkg.value.buildingCode) e.buildingCode = '请填写建筑编号'
-  if (!pkg.value.building)     e.building = '请填写建筑名称'
-  if (!pkg.value.code)         e.code = '请填写设备编号'
-  if (!pkg.value.name)         e.name = '请填写设备名称'
-  if (!pkg.value.typeK)        e.typeK = '请选择设备类型'
-  errors.value = e
-  return Object.keys(e).length === 0
-}
 function next() {
-  if (validate()) emit('next')
+  emit('next')
 }
 
 // 完成度

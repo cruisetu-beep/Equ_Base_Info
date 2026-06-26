@@ -87,6 +87,12 @@ function addDocs(catK, files) {
   logs.value = [...logs.value, { ts: tsNow(), lv: 'info', msg: `接收到 ${newItems.length} 份新文档 → 投入 OCR 队列` }]
 }
 
+function previewFile(doc) {
+  // 真实文件用 doc.url，mock 数据用文件名搜索演示
+  const url = doc.url || `https://www.google.com/search?q=${encodeURIComponent(doc.name)}`
+  window.open(url, '_blank')
+}
+
 function handleSampleAdd(catK) {
   addDocs(catK, SAMPLE_FILES_FOR[catK] || [])
 }
@@ -172,22 +178,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
             <div class="icn"><AppIcon name="doc" :size="14" /></div>
             <div class="info">
               <div class="n">{{ d.name }}</div>
-              <div class="meta">
-                {{ d.size }}KB · {{ d.stage >= 2 ? `${d.chunks} 切片` : '解析中...' }}
-                {{ d.stage >= 4 ? ` · ${d.entities} 实体` : '' }}
-              </div>
+              <div class="meta">{{ d.size }}KB</div>
             </div>
+            <button class="preview-btn" title="预览文件" @click="previewFile(d)">
+              <AppIcon name="eye" :size="14" stroke="var(--brand)" />
+            </button>
             <div class="progress"><div class="progress-fill" :style="{ width: `${d.stage * 25}%` }" /></div>
             <span class="stage-tag">
               {{ d.stage === 1 ? 'OCR' : d.stage === 2 ? '切片' : d.stage === 3 ? '标注' : '已入图谱' }}
             </span>
-          </div>
-          <div v-if="d.tags && d.tags.length > 0" class="doc-tags-strip">
-            <span
-              v-for="(t, i) in d.tags" :key="i"
-              class="doc-tag-chip"
-              :style="{ animationDelay: `${i * 0.05}s` }"
-            >#{{ t }}</span>
           </div>
         </template>
       </div>
@@ -308,6 +307,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .doc-row .stage-tag { font-size: 10px; font-family: "JetBrains Mono", monospace; padding: 2px 7px; border-radius: 3px; background: rgba(47,127,255,0.10); color: var(--brand); border: 1px solid rgba(47,127,255,0.22); }
 .doc-row.done .stage-tag { background: rgba(43,217,168,0.10); color: var(--ok); border-color: rgba(43,217,168,0.22); }
 .doc-tags-strip { display: flex; gap: 4px; flex-wrap: wrap; padding-left: 38px; padding-right: 12px; padding-top: 4px; }
+.preview-btn {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: white; cursor: pointer; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.15s;
+}
+.doc-row:hover .preview-btn { opacity: 1; }
+.preview-btn:hover { border-color: var(--brand); background: #f0f6ff; }
+
 .doc-tag-chip {
   font-size: 10px; padding: 1px 6px; border-radius: 3px;
   background: rgba(122,92,255,0.08); color: #6a4eff;

@@ -197,7 +197,7 @@ const THEMES = [
 </template>
 
 <style scoped>
-.fusion-wrap { display: flex; flex-direction: column; gap: 20px; }
+.fusion-wrap { display: flex; flex-direction: column; gap: 12px; }
 
 /* 横幅 */
 .banner {
@@ -225,10 +225,10 @@ const THEMES = [
 .pill-text { font-size: 12px; font-weight: 600; color: #15803d; }
 
 /* 卡片网格 */
-.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .step-card {
-  background: #fff; border: 1px solid #eceff3; border-radius: 14px;
-  padding: 18px; box-shadow: 0 8px 28px -22px rgba(15,23,42,.35);
+  background: #fff; border: 1px solid #eceff3; border-radius: 12px;
+  padding: 14px 16px; box-shadow: 0 8px 28px -22px rgba(15,23,42,.35);
   display: flex; flex-direction: column;
 }
 
@@ -251,9 +251,9 @@ const THEMES = [
 
 /* 高亮信息块 */
 .accent-block {
-  margin-top: 12px; border-radius: 0 10px 10px 0;
-  padding: 12px 14px; border-left: 3px solid;
-  display: flex; flex-direction: column; gap: 6px; flex: 1;
+  margin-top: 8px; border-radius: 0 8px 8px 0;
+  padding: 10px 12px; border-left: 3px solid;
+  display: flex; flex-direction: column; gap: 5px; flex: 1;
 }
 .accent-intro { font-size: 11px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 7px; }
 .accent-main { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }

@@ -78,17 +78,40 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
     <!-- 顶部成功横幅 -->
     <div class="success-banner">
       <div class="success-icon">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <circle cx="14" cy="14" r="14" fill="rgba(43,217,168,0.15)"/>
-          <path d="M8 14l4 4 8-8" stroke="#2bd9a8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="24" fill="rgba(43,217,168,0.15)"/>
+          <circle cx="24" cy="24" r="18" fill="rgba(43,217,168,0.12)"/>
+          <path d="M14 24l7 7 13-13" stroke="#2bd9a8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <div class="success-text">
         <div class="success-title">设备已成功录入系统</div>
         <div class="success-sub">
-          {{ data.name || '新设备' }}
+          <span class="device-name">{{ data.name || '新设备' }}</span>
           <span v-if="data.code" class="success-code">{{ data.code }}</span>
-          · 完成 {{ doneCount }} / {{ steps.length }} 项信息录入
+        </div>
+      </div>
+      <div class="success-stats">
+        <div class="stat-item">
+          <div class="stat-val">{{ paramCount }}</div>
+          <div class="stat-label">参数录入</div>
+        </div>
+        <div class="stat-div"></div>
+        <div class="stat-item">
+          <div class="stat-val">{{ docCount }}</div>
+          <div class="stat-label">文件归档</div>
+        </div>
+        <div class="stat-div"></div>
+        <div class="stat-item">
+          <div class="stat-val" :style="{ color: hasDataLink ? 'var(--ok)' : 'var(--text-3)' }">
+            {{ hasDataLink ? '已接入' : '未配置' }}
+          </div>
+          <div class="stat-label">数据接入</div>
+        </div>
+        <div class="stat-div"></div>
+        <div class="stat-item">
+          <div class="stat-val">{{ doneCount }}/{{ steps.length }}</div>
+          <div class="stat-label">步骤完成</div>
         </div>
       </div>
       <div class="success-time">{{ new Date().toLocaleString('zh-CN') }}</div>
@@ -99,13 +122,13 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
       <template v-for="(step, i) in steps" :key="step.title">
         <div :class="['flow-card', step.done ? 'done' : 'skip']">
           <div class="flow-card-top">
-            <div class="flow-icon" :style="{ background: step.color + '22', '--c': step.color }">
-              <AppIcon :name="step.icon" :size="20" :stroke="step.color" />
+            <div class="flow-icon" :style="{ background: step.color + '22' }">
+              <AppIcon :name="step.icon" :size="28" :stroke="step.color" />
             </div>
             <div :class="['flow-badge', step.done ? 'badge-done' : 'badge-skip']">
               <template v-if="step.done">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 5l2.5 2.5L8 2.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3L10 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 已完成
               </template>
@@ -116,10 +139,8 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
           <div class="flow-title">{{ step.title }}</div>
           <div class="flow-desc">{{ step.desc }}</div>
         </div>
-
-        <!-- 箭头连接 -->
         <div v-if="i < steps.length - 1" class="flow-arrow">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M5 12h14M13 6l6 6-6 6" stroke="var(--line-strong)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -153,60 +174,66 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
 
 /* 成功横幅 */
 .success-banner {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 20px; border-radius: 10px;
+  display: flex; align-items: center; gap: 18px;
+  padding: 20px 24px; border-radius: 12px;
   background: linear-gradient(135deg, rgba(43,217,168,0.08), rgba(77,201,255,0.06));
   border: 1px solid rgba(43,217,168,0.25);
 }
 .success-icon { flex-shrink: 0; }
 .success-text { flex: 1; }
-.success-title { font-size: 16px; font-weight: 700; color: var(--text-0); margin-bottom: 4px; }
-.success-sub { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 8px; }
+.success-title { font-size: 20px; font-weight: 700; color: var(--text-0); margin-bottom: 6px; }
+.success-sub { display: flex; align-items: center; gap: 10px; }
+.device-name { font-size: 14px; color: var(--text-1); }
 .success-code {
-  font-family: "JetBrains Mono", monospace; font-size: 11px;
+  font-family: "JetBrains Mono", monospace; font-size: 12px;
   background: rgba(77,201,255,0.12); color: var(--brand);
-  padding: 1px 7px; border-radius: 4px;
+  padding: 2px 9px; border-radius: 5px;
 }
-.success-time { font-size: 11px; color: var(--text-3); font-family: "JetBrains Mono", monospace; flex-shrink: 0; }
+.success-time { font-size: 11px; color: var(--text-3); font-family: "JetBrains Mono", monospace; flex-shrink: 0; align-self: flex-start; }
+
+/* 统计数据 */
+.success-stats {
+  display: flex; align-items: center; gap: 0;
+  background: rgba(255,255,255,0.7); border: 1px solid rgba(43,217,168,0.2);
+  border-radius: 10px; padding: 12px 0; flex-shrink: 0;
+}
+.stat-item { padding: 0 20px; text-align: center; }
+.stat-val { font-size: 22px; font-weight: 700; color: var(--brand); font-family: "JetBrains Mono", monospace; line-height: 1.2; }
+.stat-label { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.stat-div { width: 1px; height: 36px; background: rgba(43,217,168,0.2); flex-shrink: 0; }
 
 /* 流程卡片 */
 .flow-wrap {
   display: flex; align-items: stretch; gap: 0;
   border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
 }
-
 .flow-card {
-  flex: 1; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px;
+  flex: 1; padding: 24px 20px; display: flex; flex-direction: column; gap: 10px;
   border-right: 1px solid var(--line); background: #fff;
-  transition: background 0.2s;
 }
 .flow-card:last-of-type { border-right: none; }
-.flow-card.done { background: #fff; }
-.flow-card.skip { background: #f8faff; }
+.flow-card.skip { background: #f9fbff; }
 
-.flow-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-
+.flow-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
 .flow-icon {
-  width: 44px; height: 44px; border-radius: 10px;
+  width: 56px; height: 56px; border-radius: 14px;
   display: grid; place-items: center; flex-shrink: 0;
 }
-
 .flow-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
 }
 .badge-done { background: rgba(43,217,168,0.15); color: #1aaa88; }
 .badge-skip { background: #f0f2f7; color: var(--text-3); }
 
-.flow-step-num { font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace; letter-spacing: 0.06em; }
-.flow-title { font-size: 14px; font-weight: 700; color: var(--text-0); }
-.flow-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; }
+.flow-step-num { font-size: 11px; color: var(--text-3); font-family: "JetBrains Mono", monospace; letter-spacing: 0.06em; }
+.flow-title { font-size: 16px; font-weight: 700; color: var(--text-0); }
+.flow-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 
 .flow-arrow {
   display: flex; align-items: center; justify-content: center;
-  width: 0; overflow: visible; position: relative; z-index: 1;
+  padding: 0 4px; background: #fff; border-right: 1px solid var(--line); flex-shrink: 0;
 }
-.flow-arrow svg { flex-shrink: 0; }
 
 /* 提示 */
 .fusion-note {

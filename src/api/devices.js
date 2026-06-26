@@ -17,7 +17,7 @@ export async function getDevices() {
     await delay()
     return [...SAMPLE_DEVICES]
   }
-  return axios.get(`${BASE_URL}/devices`).then(r => r.data)
+  return axios.get(`${BASE_URL}/Equipment/getOverviewList`).then(r => r.data.data || r.data)
 }
 
 /**
@@ -30,7 +30,7 @@ export async function getDevice(id) {
     await delay(150)
     return SAMPLE_DEVICES.find(d => d.id === id) || null
   }
-  return axios.get(`${BASE_URL}/devices/${id}`).then(r => r.data)
+  return axios.get(`${BASE_URL}/Equipment/getDetail`, { params: { id } }).then(r => r.data.data || r.data)
 }
 
 /**
@@ -77,4 +77,23 @@ export async function deleteDevice(id) {
     return
   }
   return axios.delete(`${BASE_URL}/devices/${id}`)
+}
+
+/**
+ * 获取设备类型字典
+ * @returns {Promise<Array>}
+ */
+export async function getEquipmentTypeDict() {
+  if (USE_MOCK) {
+    await delay(100)
+    return [
+      { equipmentTypeId: "0100000000", equipmentTypeName: "变压器", parentId: "" },
+      { equipmentTypeId: "0200000000", equipmentTypeName: "制冷设备", parentId: "" },
+      { equipmentTypeId: "0300000000", equipmentTypeName: "工业锅炉", parentId: "" },
+      { equipmentTypeId: "0400000000", equipmentTypeName: "泵", parentId: "" },
+      { equipmentTypeId: "0500000000", equipmentTypeName: "风机", parentId: "" },
+      { equipmentTypeId: "0600000000", equipmentTypeName: "压缩机", parentId: "" },
+    ]
+  }
+  return axios.get(`${BASE_URL}/Equipment/getTypeDict`).then(r => r.data.data || r.data)
 }

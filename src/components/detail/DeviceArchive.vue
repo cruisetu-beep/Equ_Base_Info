@@ -13,6 +13,18 @@ const seed = computed(() =>
 const getExt = name => name.split('.').pop().toLowerCase()
 
 const docs = computed(() => {
+  if (props.device.files && props.device.files.length > 0) {
+    return props.device.files.map(f => {
+      const type = f.fileType || f.FileType
+      return {
+        id: f.fileId || f.FileId,
+        name: f.fileName || f.FileName,
+        path: f.filePath || f.FilePath,
+        ext: (type || getExt(f.fileName || f.FileName) || '').toUpperCase()
+      }
+    })
+  }
+
   const s = seed.value
   const list = [
     { id: 'f1', name: '设备铭牌-特写.jpg' },
@@ -25,6 +37,22 @@ const docs = computed(() => {
   }
   return list.map(f => ({ ...f, ext: getExt(f.name).toUpperCase() }))
 })
+
+const handlePreview = (f) => {
+  if (f.path) {
+    window.open(f.path, '_blank')
+  } else {
+    alert(`[预览演示] 模拟预览文件: ${f.name}`)
+  }
+}
+
+const handleDownload = (f) => {
+  if (f.path) {
+    window.open(f.path, '_blank')
+  } else {
+    alert(`[下载演示] 开始下载模拟文件: ${f.name}`)
+  }
+}
 </script>
 
 <template>
@@ -36,13 +64,13 @@ const docs = computed(() => {
     </div>
 
     <div class="da-grid">
-      <div v-for="f in docs" :key="f.id" class="da-item" :title="f.name">
+      <div v-for="f in docs" :key="f.id" class="da-item" :title="f.name" @click="handlePreview(f)">
         <div class="da-icon">
           <AppIcon name="doc" :size="26" stroke="var(--brand)" />
           <span class="da-ext">{{ f.ext }}</span>
         </div>
         <div class="da-name">{{ f.name }}</div>
-        <button class="da-dl" title="下载">
+        <button class="da-dl" title="下载" @click.stop="handleDownload(f)">
           <AppIcon name="download" :size="12" stroke="var(--brand)" />
         </button>
       </div>

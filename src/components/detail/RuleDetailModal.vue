@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 
 const props = defineProps({
-  rule: { type: Object, default: null }, // RULES_LIB_INIT 中的一条
+  rule: { type: Object, default: null }, // 前端 Mock 或 后端 RuleDto 格式
 })
 const emit = defineEmits(['close'])
 
@@ -15,10 +15,106 @@ const BATCH_META = {
   '第四批': { title: '高耗能落后机电设备（产品）淘汰目录（第四批）', authority: '工业和信息化部', effectiveDate: '2016-04-18' },
 }
 
-const meta = computed(() => props.rule ? (BATCH_META[props.rule.batch] || {}) : {})
+const normalizedRule = computed(() => {
+  const r = props.rule
+  if (!r) return null
+
+  // 1. 获取规则ID
+  const ruleId = r.ruleId || r.RuleID || r.ruleID || ''
+
+  // 2. 获取批次名称
+  const batch = r.batch || r.Catalog || ''
+
+  // 3. 获取淘汰类型
+  const actionType = r.actionType || r.EliminationType || ''
+
+  // 4. 获取产品名称
+  const product = r.product || r.ProductName || ''
+
+  // 5. 设备一级分类
+  let typeK = r.typeK || ''
+  if (!typeK) {
+    const l1 = r.EquipTypeLevel1 || ''
+    if (l1.includes('电机') || l1.includes('电动机')) typeK = 'motor'
+    else if (l1.includes('风机')) typeK = 'fan'
+    else if (l1.includes('泵')) typeK = 'pump'
+    else if (l1.includes('变压器')) typeK = 'transformer'
+    else if (l1.includes('锅炉')) typeK = 'boiler'
+    else if (l1.includes('压缩机')) typeK = 'compressor'
+    else typeK = l1
+  }
+
+  // 6. 设备二级分类
+  const subType = r.subType || r.EquipTypeLevel2 || ''
+
+  // 7. 截止日期
+  const deadline = r.deadline || r.Deadline || ''
+
+  // 8. 淘汰原因
+  const reason = r.reason || r.EliminationReason || ''
+
+  // 9. 相关标准
+  let standard = r.standard || ''
+  if (!standard && r.NationalStandard) {
+    if (Array.isArray(r.NationalStandard)) {
+      standard = r.NationalStandard.join('；')
+    } else {
+      standard = r.NationalStandard
+    }
+  }
+
+  // 10. 设备系列列表 (优先选用完整列表 ModelListRaw 以展示全部型号，其次用通配列表 ModelPattern)
+  let modelPattern = []
+  if (r.modelPattern) {
+    if (Array.isArray(r.modelPattern)) {
+      modelPattern = r.modelPattern.map(m => typeof m === 'object' ? (m.modelName || m.ModelName) : m)
+    } else {
+      modelPattern = [r.modelPattern]
+    }
+  } else if (r.ModelListRaw && r.ModelListRaw.length > 0) {
+    if (Array.isArray(r.ModelListRaw)) {
+      modelPattern = r.ModelListRaw
+    }
+  } else if (r.ModelPattern) {
+    if (Array.isArray(r.ModelPattern)) {
+      modelPattern = r.ModelPattern.map(m => m.ModelName || m.modelName)
+    }
+  }
+
+  // 11. 发布机构/单位、生效日期、发文标题
+  const issuingAuthority = r.issuingAuthority || r.IssuingAuthority || ''
+  const issuingTitle = r.issuingTitle || r.IssuingTitle || ''
+  const effectiveDate = r.effectiveDate || r.EffectiveDate || ''
+
+  return {
+    ruleId,
+    batch,
+    actionType,
+    product,
+    typeK,
+    subType,
+    deadline,
+    reason,
+    standard,
+    modelPattern,
+    issuingAuthority,
+    issuingTitle,
+    effectiveDate
+  }
+})
+
+const meta = computed(() => {
+  if (!normalizedRule.value) return {}
+  const mockMeta = BATCH_META[normalizedRule.value.batch] || BATCH_META[normalizedRule.value.batch.trim()] || {}
+  return {
+    title: normalizedRule.value.issuingTitle || mockMeta.title || '—',
+    authority: normalizedRule.value.issuingAuthority || mockMeta.authority || '—',
+    effectiveDate: normalizedRule.value.effectiveDate || mockMeta.effectiveDate || '—'
+  }
+})
 
 const elimColor = computed(() => {
-  const t = props.rule?.actionType
+  const t = normalizedRule.value?.actionType
   if (t === '强制') return { color: '#e0394f', bg: 'rgba(224,57,79,0.08)', border: 'rgba(224,57,79,0.28)' }
   if (t === '限期') return { color: '#ea8c2e', bg: 'rgba(234,140,46,0.08)', border: 'rgba(234,140,46,0.28)' }
   return { color: 'var(--text-2)', bg: '#f8faff', border: 'var(--line)' }
@@ -27,7 +123,7 @@ const elimColor = computed(() => {
 
 <template>
   <Teleport to="body">
-    <div v-if="rule" class="modal-backdrop" @click.self="emit('close')">
+    <div v-if="normalizedRule" class="modal-backdrop" @click.self="emit('close')">
       <div class="modal-panel">
 
         <!-- 头部 -->
@@ -35,7 +131,7 @@ const elimColor = computed(() => {
           <div class="modal-head-left">
             <AppIcon name="rule" :size="16" stroke="var(--brand)" />
             <span class="modal-title">规则详情</span>
-            <span class="rule-id-badge">{{ rule.ruleId }}</span>
+            <span class="rule-id-badge">{{ normalizedRule.ruleId }}</span>
           </div>
           <button class="modal-close" @click="emit('close')">✕</button>
         </div>
@@ -62,11 +158,11 @@ const elimColor = computed(() => {
               </div>
               <div class="field">
                 <span class="l">规则编号</span>
-                <span class="v mono bold brand">{{ rule.ruleId }}</span>
+                <span class="v mono bold brand">{{ normalizedRule.ruleId }}</span>
               </div>
               <div class="field">
                 <span class="l">淘汰批次</span>
-                <span class="v">{{ rule.batch }}</span>
+                <span class="v">{{ normalizedRule.batch }}</span>
               </div>
             </div>
           </div>
@@ -77,25 +173,25 @@ const elimColor = computed(() => {
             <div class="fields fields-2">
               <div class="field full">
                 <span class="l">设备名称</span>
-                <span class="v">{{ rule.product }}</span>
+                <span class="v">{{ normalizedRule.product }}</span>
               </div>
               <div class="fields fields-3 full-grid">
                 <div class="field">
                   <span class="l">设备分类</span>
-                  <span class="v">{{ rule.typeK === 'motor' ? '电动机' : rule.typeK === 'fan' ? '风机' : rule.typeK === 'pump' ? '泵' : rule.typeK === 'transformer' ? '变压器' : rule.typeK === 'compressor' ? '压缩机' : rule.typeK === 'boiler' ? '锅炉' : rule.typeK === 'welder' ? '焊机' : rule.typeK }}</span>
+                  <span class="v">{{ normalizedRule.typeK === 'motor' ? '电动机' : normalizedRule.typeK === 'fan' ? '风机' : normalizedRule.typeK === 'pump' ? '泵' : normalizedRule.typeK === 'transformer' ? '变压器' : normalizedRule.typeK === 'compressor' ? '压缩机' : normalizedRule.typeK === 'boiler' ? '锅炉' : normalizedRule.typeK === 'welder' ? '焊机' : normalizedRule.typeK }}</span>
                 </div>
                 <div class="field">
                   <span class="l">设备分类详细</span>
-                  <span class="v">{{ rule.subType || '—' }}</span>
+                  <span class="v">{{ normalizedRule.subType || '—' }}</span>
                 </div>
-                <div class="field" v-if="rule.modelPattern?.length">
+                <div class="field" v-if="normalizedRule.modelPattern?.length">
                   <span class="l">设备系列</span>
-                  <span class="v mono">{{ rule.modelPattern.join(' / ') }}</span>
+                  <span class="v mono ellipsis" :title="normalizedRule.modelPattern.join(', ')">{{ normalizedRule.modelPattern.join(', ') }}</span>
                 </div>
               </div>
-              <div class="field full model-list" v-if="rule.modelPattern?.length">
+              <div class="field full model-list" v-if="normalizedRule.modelPattern?.length">
                 <span class="l">设备系列清单</span>
-                <div class="model-list-body">{{ rule.modelPattern.join('\n') }}</div>
+                <span class="v mono ellipsis" :title="normalizedRule.modelPattern.join(', ')">{{ normalizedRule.modelPattern.join(', ') }}</span>
               </div>
             </div>
           </div>
@@ -106,19 +202,19 @@ const elimColor = computed(() => {
             <div class="fields">
               <div class="field">
                 <span class="l">淘汰类型</span>
-                <span class="v bold" :style="{ color: elimColor.color }">{{ rule.actionType }}淘汰</span>
+                <span class="v bold" :style="{ color: elimColor.color }">{{ normalizedRule.actionType }}淘汰</span>
               </div>
               <div class="field">
                 <span class="l">淘汰日期</span>
-                <span class="v mono" :style="{ color: elimColor.color }">{{ rule.deadline || '—' }}</span>
+                <span class="v mono" :style="{ color: elimColor.color }">{{ normalizedRule.deadline || '—' }}</span>
               </div>
               <div class="field full">
                 <span class="l">说明</span>
-                <span class="v">{{ rule.reason || '—' }}</span>
+                <span class="v">{{ normalizedRule.reason || '—' }}</span>
               </div>
-              <div class="field full" v-if="rule.standard">
+              <div class="field full" v-if="normalizedRule.standard">
                 <span class="l">相关标准</span>
-                <span class="v mono small">{{ rule.standard }}</span>
+                <span class="v mono small ellipsis-2" :title="normalizedRule.standard">{{ normalizedRule.standard }}</span>
               </div>
             </div>
           </div>
@@ -178,7 +274,7 @@ const elimColor = computed(() => {
 .elim-product { font-size: 13px; color: var(--text-1); }
 
 /* 分组 */
-.section { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.section { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
 .section-title {
   font-size: 12px; font-weight: 600; color: var(--text-2);
   letter-spacing: 0.05em; text-transform: uppercase;
@@ -189,8 +285,25 @@ const elimColor = computed(() => {
 .full-grid { grid-column: 1 / -1; border-top: 1px solid var(--line); }
 .field {
   display: flex; flex-direction: column; gap: 3px;
-  padding: 9px 14px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
+  padding: 6px 14px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
   background: #fff;
+  min-width: 0;
+}
+.field .v.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.field .v.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-all;
+  width: 100%;
 }
 .field:nth-child(even) { background: #fafbff; }
 .fields-3 .field:nth-child(3n) { border-right: none; }
@@ -205,9 +318,17 @@ const elimColor = computed(() => {
 .field.model-list { flex-direction: column; gap: 6px; }
 .model-list-body {
   font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--text-0);
-  white-space: pre-line; line-height: 1.8;
-  max-height: 120px; overflow-y: auto;
+  white-space: pre-line !important; line-height: 1.8 !important;
+  max-height: 120px !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  padding: 4px 0;
 }
-.model-list-body::-webkit-scrollbar { width: 4px; }
-.model-list-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+.model-list-body::-webkit-scrollbar {
+  width: 4px;
+}
+.model-list-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+}
 </style>

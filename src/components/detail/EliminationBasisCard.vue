@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
+import { getRuleDetail } from '@/api/rules'
 import DeviceArchive from './DeviceArchive.vue'
 import RuleDetailModal from './RuleDetailModal.vue'
 
@@ -10,10 +11,33 @@ const props = defineProps({
   ext:    { type: Object, required: true },
 })
 const showRuleModal = ref(false)
+const selectedRule = ref(null)
+const loadingRule = ref(false)
 
 const matchedRule = computed(() =>
   props.device.ruleHit ? RULES_LIB_INIT.find(r => r.ruleId === props.device.ruleHit) : null
 )
+
+const handleViewRule = async () => {
+  const ruleId = props.device.ruleHit || props.device.ruleId
+  if (!ruleId) return
+
+  loadingRule.value = true
+  try {
+    const res = await getRuleDetail(ruleId)
+    if (res) {
+      selectedRule.value = res
+      showRuleModal.value = true
+    } else {
+      alert('未找到该规则的详细配置')
+    }
+  } catch (err) {
+    console.error('加载规则详情失败:', err)
+    alert('加载规则详情失败，请重试')
+  } finally {
+    loadingRule.value = false
+  }
+}
 
 const elimStyle = computed(() => {
   const t = props.device.eliminationType || props.device.level || ''
@@ -68,32 +92,32 @@ const elimStyle = computed(() => {
           </div>
           <div class="eb-row">
             <span class="l">匹配规则</span>
-            <span class="v">{{ matchedRule ? '型号匹配' : '人工判定' }}</span>
+            <span class="v">{{ device.matchMethod}}</span>
           </div>
-          <div class="eb-row" v-if="matchedRule">
+          <div class="eb-row" v-if="device.ruleBatch || matchedRule?.batch">
             <span class="l">淘汰批次</span>
-            <span class="v mono">{{ matchedRule.batch }}</span>
+            <span class="v mono">{{ device.ruleBatch || matchedRule?.batch }}</span>
           </div>
-          <div class="eb-row" v-if="matchedRule">
+          <div class="eb-row" v-if="device.ruleId || device.ruleHit">
             <span class="l">命中规则</span>
             <span class="v rule-inline">
-              <span class="rule-id">{{ matchedRule.ruleId }}</span>
-              <button class="view-btn" @click="showRuleModal = true">
-                <AppIcon name="search" :size="11" /> 查看
+              <span class="rule-id">{{ device.ruleId || device.ruleHit }}</span>
+              <button class="view-btn" @click="handleViewRule" :disabled="loadingRule">
+                <AppIcon name="search" :size="11" /> {{ loadingRule ? '加载中...' : '查看' }}
               </button>
             </span>
           </div>
-          <div class="eb-row" v-if="matchedRule?.deadline">
+          <div class="eb-row" v-if="device.ruleDeadline || matchedRule?.deadline">
             <span class="l">截止日期</span>
-            <span class="v mono" style="color:var(--eol-red)">{{ matchedRule.deadline }}</span>
+            <span class="v mono" style="color:var(--eol-red)">{{ device.ruleDeadline || matchedRule?.deadline }}</span>
           </div>
           <div class="eb-row">
             <span class="l">判定日期</span>
-            <span class="v mono">{{ device.updated?.slice(0, 10) || '—' }}</span>
+            <span class="v mono">{{ device.judgmentDate || device.updated?.slice(0, 10) || '—' }}</span>
           </div>
           <div class="eb-row">
             <span class="l">判定人</span>
-            <span class="v">SYSTEM</span>
+            <span class="v">{{ device.judgmentBy || 'SYSTEM' }}</span>
           </div>
         </div>
       </div>
@@ -104,7 +128,7 @@ const elimStyle = computed(() => {
     </template>
 
     <!-- 规则详情弹窗 -->
-    <RuleDetailModal :rule="showRuleModal ? matchedRule : null" @close="showRuleModal = false" />
+    <RuleDetailModal :rule="showRuleModal ? selectedRule : null" @close="showRuleModal = false" />
   </div>
 </template>
 

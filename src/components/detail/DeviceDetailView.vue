@@ -3,23 +3,77 @@
 // 设备详情页 Phase 7：页面骨架 + 基础信息
 // Phase 8 起逐步补充：运行参数 / 知识图谱摘要 / 判定详情 / 文档 / 时间线 / 改造计划
 
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuntimeParamsCard from './RuntimeParamsCard.vue'
 import EnergyChartCard from './EnergyChartCard.vue'
 import EliminationBasisCard from './EliminationBasisCard.vue'
-import { SAMPLE_DEVICES, DEV_TYPE_MAP, STATUS_MAP, getDeviceDetailExt } from '@/data/devices'
+import { SAMPLE_DEVICES, DEV_TYPE_MAP, STATUS_MAP, getDeviceDetailExt, parseTypeK } from '@/data/devices'
+import { getDevice } from '@/api/devices'
 
 const props = defineProps({
   deviceId: { type: String, required: true },
 })
 defineEmits(['back', 'edit', 'rejudge', 'view-rule'])
 
-const device = computed(() => SAMPLE_DEVICES.find(d => d.id === props.deviceId) || null)
+const device = ref(null)
+const loading = ref(false)
+
+async function loadDevice() {
+  if (!props.deviceId) return
+  loading.value = true
+  try {
+    let dev = SAMPLE_DEVICES.find(d => d.id === props.deviceId)
+    if (dev) {
+      device.value = dev
+      return
+    }
+
+    const res = await getDevice(props.deviceId)
+    if (res) {
+      res.typeK = res.typeK || parseTypeK(res.type2)
+      const templateDev = SAMPLE_DEVICES.find(s => s.typeK === res.typeK) || SAMPLE_DEVICES[0]
+      
+      const realParamGroups = [
+        {
+          groupName: "技术参数",
+          items: (res.params || []).map(p => ({
+            name: p.name,
+            value: p.value || "—"
+          }))
+        }
+      ]
+
+      device.value = {
+        ...res,
+        files: res.files || [],
+        ruleHit: res.ruleId,
+        matchMethod: res.matchMethod,
+        ruleBatch: res.ruleBatch,
+        ruleDeadline: res.ruleDeadline,
+        paramGroups: realParamGroups,
+        energyData: (res.energyData && res.energyData.length) ? res.energyData : (templateDev ? JSON.parse(JSON.stringify(templateDev.energyData)) : []),
+      }
+    } else {
+      device.value = null
+    }
+  } catch (err) {
+    console.error('加载设备详情失败:', err)
+    device.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => props.deviceId, loadDevice, { immediate: true })
+
 const devType = computed(() => device.value ? (DEV_TYPE_MAP[device.value.typeK] || DEV_TYPE_MAP.other) : null)
 const statusInfo = computed(() => device.value ? STATUS_MAP[device.value.status] : null)
 const ext = computed(() => device.value ? getDeviceDetailExt(device.value) : null)
 const deviceCount = computed(() => {
+  if (device.value && device.value.deviceCount !== undefined) {
+    return device.value.deviceCount
+  }
   const all = (device.value?.paramGroups || []).flatMap(g => g.items)
   const item = all.find(i => i.name === '设备数量')
   return item ? item.value : '—'
@@ -30,7 +84,13 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
 </script>
 
 <template>
-  <div v-if="!device" class="placeholder-page float-in">
+  <div v-if="loading" class="placeholder-page float-in">
+    <div style="font-size: 15px; color: var(--text-2)">
+      正在加载设备数据，请稍候...
+    </div>
+  </div>
+
+  <div v-else-if="!device" class="placeholder-page float-in">
     <div class="icn">❓</div>
     <div class="h">未找到该设备</div>
     <div class="s">设备可能已被删除，请返回总览重新选择</div>
@@ -105,7 +165,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
         <RuntimeParamsCard :paramGroups="device.paramGroups" />
 
         <!-- 能耗图表卡 -->
-        <EnergyChartCard :energyData="device.energyData" :deviceName="device.name" />
+        <EnergyChartCard :energyData="device.energyData" :monthKwh="device.monthKwh" :yearKwh="device.yearKwh" :deviceName="device.name" />
       </div>
 
       <!-- 右栏：淘汰判定详情 -->

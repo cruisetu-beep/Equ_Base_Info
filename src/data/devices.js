@@ -23,6 +23,18 @@ export const DEV_TYPES = [
 
 export const DEV_TYPE_MAP = Object.fromEntries(DEV_TYPES.map(d => [d.k, d]))
 
+export function parseTypeK(type2) {
+  if (!type2) return "other"
+  if (type2.includes("电机") || type2.includes("电动机")) return "motor"
+  if (type2.includes("风机")) return "fan"
+  if (type2.includes("泵")) return "pump"
+  if (type2.includes("变压器")) return "transformer"
+  if (type2.includes("锅炉")) return "boiler"
+  if (type2.includes("压缩机")) return "compressor"
+  if (type2.includes("冷") || type2.includes("热泵")) return "chiller"
+  return "other"
+}
+
 // 状态映射
 export const STATUS_MAP = {
   normal:   { label: "正常",   cls: "ok",      color: "var(--ok)" },

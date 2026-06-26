@@ -61,21 +61,38 @@ const hourlyData = computed(() => {
 const chartRef = ref(null)
 let chart = null
 function buildOption() {
-  const data = hourlyData.value, max = Math.max(...data.map(d => d.kwh))
+  const data = energyData.value
   return {
-    grid: { top: 12, right: 10, bottom: 32, left: 42 },
-    tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>用电量：<b>${p[0].value} kWh</b>`,
-      backgroundColor: '#1a2440', borderColor: '#2a3a60', textStyle: { color: '#c8d8f8', fontSize: 12 } },
-    xAxis: { type: 'category', data: data.map(d => d.hour),
-      axisLabel: { fontSize: 10, color: '#8a9bbf', interval: 3, formatter: v => v.slice(0,2)+'h' },
-      axisLine: { lineStyle: { color: '#dde4f0' } }, axisTick: { show: false } },
-    yAxis: { type: 'value', name: 'kWh', nameTextStyle: { fontSize: 10, color: '#8a9bbf' },
-      axisLabel: { fontSize: 10, color: '#8a9bbf' }, splitLine: { lineStyle: { color: '#eef1f8', type: 'dashed' } } },
-    series: [{ type: 'bar', data: data.map(d => d.kwh), barMaxWidth: 24,
-      itemStyle: { color: p => p.value/max > 0.8
-        ? new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#ff8a47'},{offset:1,color:'#ffb547'}])
-        : new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#4dc9ff'},{offset:1,color:'#2bd9a8'}]),
-        borderRadius: [3,3,0,0] } }],
+    grid: { top: 16, right: 10, bottom: 36, left: 46 },
+    tooltip: {
+      trigger: 'axis',
+      formatter: p => `${p[0].name}<br/>用电量：<b>${p[0].value} kWh</b>`,
+      backgroundColor: '#1a2440', borderColor: '#2a3a60',
+      textStyle: { color: '#c8d8f8', fontSize: 12 },
+    },
+    xAxis: {
+      type: 'category', data: data.map(d => d.time),
+      axisLabel: { fontSize: 10, color: '#8a9bbf', interval: 11, formatter: v => v },
+      axisLine: { lineStyle: { color: '#dde4f0' } }, axisTick: { show: false },
+      boundaryGap: false,
+    },
+    yAxis: {
+      type: 'value', name: 'kWh',
+      nameTextStyle: { fontSize: 10, color: '#8a9bbf' },
+      axisLabel: { fontSize: 10, color: '#8a9bbf' },
+      splitLine: { lineStyle: { color: '#eef1f8', type: 'dashed' } },
+    },
+    series: [{
+      type: 'line', data: data.map(d => d.kwh),
+      smooth: true, symbol: 'none',
+      lineStyle: { width: 2, color: '#4dc9ff' },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(77,201,255,0.35)' },
+          { offset: 1, color: 'rgba(43,217,168,0.05)' },
+        ]),
+      },
+    }],
   }
 }
 const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => chart?.resize()) : null
@@ -174,16 +191,9 @@ watch(selectedNodeId, () => {
             <span class="pm">· {{ selectedModel?.name }}</span>
             <span class="freq-badge">15min</span>
           </div>
-          <div class="ec-stats">
-            <div class="ec-stat"><div class="ec-val">{{ totalKwh }}</div><div class="ec-label">今日能耗 (kWh)</div></div>
-            <div class="ec-div"></div>
-            <div class="ec-stat"><div class="ec-val">{{ monthKwh }}</div><div class="ec-label">本月能耗 (kWh)</div></div>
-            <div class="ec-div"></div>
-            <div class="ec-stat"><div class="ec-val">{{ yearKwh }}</div><div class="ec-label">今年能耗 (kWh)</div></div>
-          </div>
-          <div class="chart-title">今日用电曲线（小时聚合 · 15min 采集）</div>
+          <div class="chart-title">今日用电曲线（15min 采集）</div>
           <div ref="chartRef" class="ec-chart"></div>
-          <div class="data-source">来源：{{ selectedModel?.name }} · {{ selectedNodeId }} · 采样 15min</div>
+          <div class="data-source">来源：{{ selectedModel?.name }} · {{ selectedNode?.label }}</div>
         </template>
       </div>
 

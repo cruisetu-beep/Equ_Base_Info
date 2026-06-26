@@ -8,19 +8,21 @@ const props = defineProps({ data: { type: Object, required: true } })
 const emit  = defineEmits(['update:data', 'next', 'prev'])
 
 const DOC_CATEGORIES = [
-  { k: 'photo',    n: '现场照片',   icon: 'eye',      color: '#4dc9ff', desc: '设备外观、安装环境、铭牌特写' },
-  { k: 'manual',   n: '使用说明书', icon: 'doc',      color: '#7a5cff', desc: '产品说明书 / 技术参数手册' },
-  { k: 'archive',  n: '设备档案',   icon: 'database', color: '#2bd9a8', desc: '采购合同 / 验收报告 / 试运行记录' },
-  { k: 'maintain', n: '维保记录',   icon: 'settings', color: '#ffb547', desc: '维修工单 / 保养记录 / 故障日志' },
-  { k: 'test',     n: '检测报告',   icon: 'sparkles', color: '#ff8a47', desc: '能效检测 / 第三方测试报告' },
+  { k: 'device',   n: '设备照片',   icon: 'eye',      color: '#4dc9ff', desc: '设备外观、铭牌特写等照片' },
+  { k: 'site',     n: '现场照片',   icon: 'scan',     color: '#2bd9a8', desc: '安装环境、现场全景照片' },
+  { k: 'archive',  n: '设备档案',   icon: 'database', color: '#7a5cff', desc: '采购合同、验收报告、试运行记录' },
+  { k: 'maintain', n: '维保记录',   icon: 'settings', color: '#ffb547', desc: '维修工单、保养记录、故障日志' },
+  { k: 'monitor',  n: '监测报告',   icon: 'sparkles', color: '#ff8a47', desc: '能效检测、运行监测、第三方报告' },
+  { k: 'other',    n: '其他文件',   icon: 'doc',      color: '#8a9bbf', desc: '其他相关文件资料' },
 ]
 
 const SAMPLE_FILES_FOR = {
-  photo:    [{ name: '设备外观-正面.jpg', size: 2840 }, { name: '设备铭牌-特写.jpg', size: 1620 }, { name: '安装环境-机房全景.jpg', size: 3120 }],
-  manual:   [{ name: 'Y2 系列电动机使用说明书.pdf', size: 4820 }, { name: '技术参数手册-第3版.pdf', size: 2340 }],
+  device:   [{ name: '设备外观-正面.jpg', size: 2840 }, { name: '设备铭牌-特写.jpg', size: 1620 }],
+  site:     [{ name: '安装环境-机房全景.jpg', size: 3120 }, { name: '现场安装照片.jpg', size: 2240 }],
   archive:  [{ name: '采购合同-2008.pdf', size: 1240 }, { name: '出厂检验报告.pdf', size: 980 }, { name: '现场验收记录.docx', size: 560 }],
   maintain: [{ name: '2023年度维保记录.xlsx', size: 720 }, { name: '故障维修工单合集.pdf', size: 1840 }],
-  test:     [{ name: '电机能效检测报告-2023.pdf', size: 1560 }],
+  monitor:  [{ name: '电机能效检测报告-2023.pdf', size: 1560 }],
+  other:    [],
 }
 
 const STAGES = [

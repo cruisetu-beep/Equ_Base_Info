@@ -4,7 +4,19 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { tsNow, randomTags, randomDocLog, tokenizeDocLog } from '@/utils/logHelpers'
 
-const props = defineProps({ data: { type: Object, required: true } })
+const props = defineProps({
+  data: { type: Object, required: true },
+  stages: {
+    type: Array,
+    default: () => [
+      { n: 'OCR · 文本抽取',  k: 1 },
+      { n: '语义切片',         k: 2 },
+      { n: '实体识别 / 标签',  k: 3 },
+      { n: '向量化 / 入图谱',  k: 4 },
+    ],
+  },
+})
+const STAGES = computed(() => props.stages)
 const emit  = defineEmits(['update:data', 'next', 'prev'])
 
 const DOC_CATEGORIES = [
@@ -25,19 +37,8 @@ const SAMPLE_FILES_FOR = {
   other:    [],
 }
 
-// 解析流水线步骤 — 通过 prop 传入，未来可由后端/配置动态下发
-const props = defineProps({
-  stages: {
-    type: Array,
-    default: () => [
-      { n: 'OCR · 文本抽取',  k: 1 },
-      { n: '语义切片',         k: 2 },
-      { n: '实体识别 / 标签',  k: 3 },
-      { n: '向量化 / 入图谱',  k: 4 },
-    ],
-  },
-})
-const STAGES = computed(() => props.stages)
+
+
 
 const activeCat = ref('device')
 const docs      = ref({ ...(props.data.docs || {}) })

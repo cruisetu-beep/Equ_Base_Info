@@ -7,30 +7,54 @@ import { DEV_TYPES } from '@/data/devices'
 import { BATCH_COLORS } from '@/data/rules'
 
 const props = defineProps({
-  rules:        { type: Array,  required: true },
+  stats:        { type: Object, required: true },
   filterBatch:  { type: String, required: true },
   filterType:   { type: String, required: true },
   filterStatus: { type: String, required: true },
 })
 const emit = defineEmits(['update:filterBatch', 'update:filterType', 'update:filterStatus'])
 
-const total   = computed(() => props.rules.length)
-const enabled = computed(() => props.rules.filter(r => r.enabled !== false).length)
-const disabled= computed(() => total.value - enabled.value)
+const total    = computed(() => props.stats?.status?.find(s => s.key === 'all')?.count || 0)
+const enabled  = computed(() => props.stats?.status?.find(s => s.key === 'enabled')?.count || 0)
+const disabled = computed(() => props.stats?.status?.find(s => s.key === 'disabled')?.count || 0)
 
-const batchCnt = computed(() => {
-  const m = {}
-  Object.keys(BATCH_COLORS).forEach(b => { m[b] = props.rules.filter(r => r.batch === b).length })
-  return m
+// 过滤筛选条件列表：只保留“全部”、数量大于 0 的、以及当前选中的项，其他没有数据的项不显示
+const displayStatusList = computed(() => {
+  if (!props.stats?.status) return []
+  return props.stats.status.filter(s => s.key === 'all' || s.count > 0 || props.filterStatus === s.key)
 })
 
-const typeCnt = computed(() => {
-  const m = {}
-  props.rules.forEach(r => { m[r.typeK] = (m[r.typeK] || 0) + 1 })
-  return m
+const displayBatchList = computed(() => {
+  if (!props.stats?.batches) return []
+  return props.stats.batches.filter(b => b.key === 'all' || b.count > 0 || props.filterBatch === b.key)
 })
 
-const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] > 0))
+const displayTypeList = computed(() => {
+  if (!props.stats?.types) return []
+  return props.stats.types.filter(t => t.key === 'all' || t.count > 0 || props.filterType === t.key)
+})
+
+const getBatchColor = (key) => {
+  if (key === 'all') return '#1f6feb'
+  return BATCH_COLORS[key]?.bg || '#888'
+}
+
+const getBatchYear = (key) => {
+  if (key === 'all') return ''
+  return BATCH_COLORS[key]?.year ? ` (${BATCH_COLORS[key].year})` : ''
+}
+
+const getTypeColor = (key) => {
+  if (key === 'all') return '#1f6feb'
+  const devType = DEV_TYPES.find(d => d.k === key)
+  return devType?.color || '#888'
+}
+
+const getTypeIcon = (key) => {
+  if (key === 'all') return 'cube'
+  const devType = DEV_TYPES.find(d => d.k === key)
+  return devType?.icon || 'settings'
+}
 </script>
 
 <template>
@@ -39,9 +63,13 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
     <div class="fb-row">
       <span class="g-label">状态</span>
       <div class="status-segs">
-        <span :class="['status-seg', filterStatus === 'all'      && 'active']"     @click="$emit('update:filterStatus', 'all')">全部</span>
-        <span :class="['status-seg', filterStatus === 'enabled'  && 'active ok']"  @click="$emit('update:filterStatus', 'enabled')">启用</span>
-        <span :class="['status-seg', filterStatus === 'disabled' && 'active dis']" @click="$emit('update:filterStatus', 'disabled')">禁用</span>
+        <span 
+          v-for="s in displayStatusList" :key="s.key"
+          :class="['status-seg', filterStatus === s.key && 'active', filterStatus === s.key && s.key === 'enabled' && 'ok', filterStatus === s.key && s.key === 'disabled' && 'dis']"     
+          @click="$emit('update:filterStatus', s.key)"
+        >
+          {{ s.name }} <span class="cnt">{{ s.count }}</span>
+        </span>
       </div>
 
       <div class="vsep" />
@@ -49,19 +77,12 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
       <span class="g-label">批次</span>
       <div class="chip-row">
         <span
-          :class="['f-chip', filterBatch === 'all' && 'active']"
-          style="--cl:#1f6feb"
-          @click="$emit('update:filterBatch', 'all')"
+          v-for="b in displayBatchList" :key="b.key"
+          :class="['f-chip', filterBatch === b.key && 'active']"
+          :style="{ '--cl': getBatchColor(b.key) }"
+          @click="$emit('update:filterBatch', b.key)"
         >
-          <span class="dot" style="background:#1f6feb" /> 全部 <span class="cnt">{{ total }}</span>
-        </span>
-        <span
-          v-for="[b, c] in Object.entries(BATCH_COLORS)" :key="b"
-          :class="['f-chip', filterBatch === b && 'active']"
-          :style="{ '--cl': c.bg }"
-          @click="$emit('update:filterBatch', b)"
-        >
-          <span class="dot" /> {{ b }} ({{ c.year }}) <span class="cnt">{{ batchCnt[b] || 0 }}</span>
+          <span class="dot" /> {{ b.name }}{{ getBatchYear(b.key) }} <span class="cnt">{{ b.count }}</span>
         </span>
       </div>
 
@@ -80,20 +101,13 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
       <span class="g-label">类型</span>
       <div class="chip-row">
         <span
-          :class="['f-chip', filterType === 'all' && 'active']"
-          style="--cl:#1f6feb"
-          @click="$emit('update:filterType', 'all')"
+          v-for="t in displayTypeList" :key="t.key"
+          :class="['f-chip', filterType === t.key && 'active']"
+          :style="{ '--cl': getTypeColor(t.key) }"
+          @click="$emit('update:filterType', t.key)"
         >
-          <AppIcon name="cube" :size="11" /> 全部 <span class="cnt">{{ total }}</span>
-        </span>
-        <span
-          v-for="t in typesWithRules" :key="t.k"
-          :class="['f-chip', filterType === t.k && 'active']"
-          :style="{ '--cl': t.color }"
-          @click="$emit('update:filterType', t.k)"
-        >
-          <AppIcon :name="t.icon" :size="11" :stroke="filterType === t.k ? t.color : 'currentColor'" />
-          {{ t.label }} <span class="cnt">{{ typeCnt[t.k] }}</span>
+          <AppIcon :name="getTypeIcon(t.key)" :size="11" :stroke="filterType === t.key ? getTypeColor(t.key) : 'currentColor'" />
+          {{ t.name }} <span class="cnt">{{ t.count }}</span>
         </span>
       </div>
     </div>
@@ -130,6 +144,8 @@ const typesWithRules = computed(() => DEV_TYPES.filter(t => typeCnt.value[t.k] >
 .status-seg.active { background: var(--brand); border-color: var(--brand); color: white; font-weight: 500; }
 .status-seg.active.ok  { background: var(--ok);     border-color: var(--ok); }
 .status-seg.active.dis { background: var(--text-2); border-color: var(--text-2); }
+.status-seg .cnt { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--text-3); margin-left: 4px; }
+.status-seg.active .cnt { color: inherit; opacity: 0.9; }
 
 /* 通用 chip */
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }

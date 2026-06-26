@@ -131,7 +131,8 @@
 }
 
 /* ───── 应用容器 ───── */
-.app { max-width: 1440px; margin: 0 auto; padding: 0 24px 24px; }
+.app { padding: 0 24px 40px; }
+.app.full-width { max-width: none; }
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 16px 8px 20px;

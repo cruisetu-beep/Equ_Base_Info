@@ -15,9 +15,11 @@ const rules = RULES_LIB_INIT.filter(r => r.enabled !== false)
 
 // phase: select | from-existing | quick | batch | running | result
 const phase          = ref('select')
+const entryMode      = ref('from-existing')
 const devicesToJudge = ref([])
 const results        = ref([])
 
+// 开始判定：获取待判定的设备列表，并切换到判定运行状态
 function startJudge(devs) {
   devicesToJudge.value = devs
   phase.value = 'running'
@@ -33,15 +35,16 @@ function onJudgeDone(rs) {
   <ModeSelect
     v-if="phase === 'select'"
     @pick="k => {
-      if (k === 'existing') phase = 'from-existing'
-      if (k === 'quick')    phase = 'quick'
-      if (k === 'batch')    phase = 'batch'
+      if (k === 'existing') { phase = 'from-existing'; entryMode = 'from-existing'; }
+      if (k === 'quick')    { phase = 'quick'; entryMode = 'quick'; }
+      if (k === 'batch')    { phase = 'batch'; entryMode = 'batch'; }
     }"
   />
 
   <FromExisting
     v-else-if="phase === 'from-existing'"
     :rules="rules"
+    :initial-devices="devicesToJudge"
     @start="startJudge"
     @back="phase = 'select'"
   />
@@ -65,13 +68,13 @@ function onJudgeDone(rs) {
     :devices="devicesToJudge"
     :rules="rules"
     @done="onJudgeDone"
-    @cancel="phase = 'select'"
+    @cancel="phase = entryMode"
   />
 
   <JudgeResult
     v-else-if="phase === 'result'"
     :results="results"
-    @restart="phase = 'select'"
-    @back="phase = 'select'"
+    @restart="startJudge"
+    @back="phase = entryMode"
   />
 </template>

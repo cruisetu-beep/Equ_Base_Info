@@ -1,11 +1,11 @@
 <script setup>
 // ── components/rules/RulesTable.vue ───────────────────────────────
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP } from '@/data/devices'
 import { BATCH_COLORS, ACTION_COLORS } from '@/data/rules'
 
-defineProps({
+const props = defineProps({
   pageRules:       { type: Array,   required: true },
   totalCount:      { type: Number,  required: true },
   page:            { type: Number,  required: true },
@@ -16,10 +16,49 @@ defineProps({
   deleteConfirmId: { type: String,  default: null },
 })
 
-defineEmits([
+const emit = defineEmits([
   'update:qRuleId', 'update:qProduct', 'update:page', 'update:selId',
   'toggle-enabled', 'update:deleteConfirmId', 'delete-rule',
 ])
+
+const visiblePages = computed(() => {
+  const total = props.totalPages
+  const current = props.page
+  const pages = []
+
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    pages.push(1)
+
+    let start = Math.max(2, current - 2)
+    let end = Math.min(total - 1, current + 2)
+
+    if (current <= 4) {
+      end = 5
+    } else if (current >= total - 3) {
+      start = total - 4
+    }
+
+    if (start > 2) {
+      pages.push('...')
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+
+    if (end < total - 1) {
+      pages.push('...')
+    }
+
+    pages.push(total)
+  }
+
+  return pages
+})
 
 // 列筛选弹层：'ruleId' | 'product' | null
 const openFilter = ref(null)
@@ -55,10 +94,10 @@ function closeFilter() {
             </div>
           </th>
           <th>批次</th>
-          <th>类型</th>
+          <th>类型 (一/二级)</th>
           <th>
             <span class="th-with-filter">
-              产品 / 型号系列
+              产品名称
               <span
                 :class="['th-filter-ic', qProduct && 'active']"
                 @click.stop="toggleFilter('product')"
@@ -66,13 +105,15 @@ function closeFilter() {
             </span>
             <div v-if="openFilter === 'product'" class="th-filter-pop" @click.stop>
               <input
-                class="input" placeholder="输入产品名 / 型号关键字" autofocus
+                class="input" placeholder="输入产品名关键字" autofocus
                 :value="qProduct"
                 @input="$emit('update:qProduct', $event.target.value)"
               />
               <button v-if="qProduct" class="clear" @click="$emit('update:qProduct', '')">清空</button>
             </div>
           </th>
+          <th>章节与页码</th>
+          <th>置信度</th>
           <th>淘汰类型</th>
           <th>截止日期</th>
           <th>启用</th>
@@ -81,7 +122,7 @@ function closeFilter() {
       </thead>
       <tbody>
         <tr v-if="pageRules.length === 0">
-          <td colspan="8" class="empty-state-table">
+          <td colspan="10" class="empty-state-table">
             <div class="ic"><AppIcon name="search" :size="28" stroke="var(--text-3)" /></div>
             <div>未找到匹配的规则</div>
             <div style="font-size:11px;margin-top:6px">调整筛选条件或清空搜索关键词</div>
@@ -89,8 +130,6 @@ function closeFilter() {
         </tr>
         <tr
           v-for="r in pageRules" :key="r.ruleId"
-          :class="selId === r.ruleId && 'sel'"
-          @click="$emit('update:selId', r.ruleId)"
         >
           <td class="rid">{{ r.ruleId }}</td>
 
@@ -102,21 +141,44 @@ function closeFilter() {
             </span>
           </td>
 
-          <!-- 类型 -->
+          <!-- 类型 (包含二级分类) -->
           <td>
-            <span style="display:inline-flex;align-items:center;gap:6px;color:var(--text-1)">
-              <AppIcon :name="(DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).icon" :size="12"
-                       :stroke="(DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).color" />
-              {{ (DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).label }}
-            </span>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="display:inline-flex;align-items:center;gap:6px;color:var(--text-1)">
+                <AppIcon :name="(DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).icon" :size="12"
+                         :stroke="(DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).color" />
+                {{ (DEV_TYPE_MAP[r.typeK] || DEV_TYPE_MAP.other).label }}
+              </span>
+              <span v-if="r.subType" style="font-size:10.5px;color:var(--text-2);padding-left:18px">
+                {{ r.subType }}
+              </span>
+            </div>
           </td>
 
-          <!-- 产品/型号 -->
+          <!-- 产品 -->
           <td class="product">
             <div>{{ r.product }}</div>
-            <div v-if="r.modelPattern && r.modelPattern.length > 0" class="sub mono">
-              型号 {{ r.modelPattern.join(' / ') }}
+            <div v-if="r.modelPattern && r.modelPattern.length > 0" class="sub mono" style="font-size: 10px; color: var(--text-2); margin-top: 4px">
+              包含型号: {{ r.modelPattern.map(m => m.modelName).slice(0, 3).join(', ') }}{{ r.modelPattern.length > 3 ? '...' : '' }}
             </div>
+          </td>
+
+          <!-- 章节与页码 -->
+          <td style="font-size:11px;color:var(--text-1)">
+            <div v-if="r.section">第 {{ r.sectionNum || 1 }} 章节 {{ r.section }}</div>
+            <div v-if="r.originalPage" style="color:var(--text-2);margin-top:2px">页码: 第 {{ r.originalPage }} 页</div>
+            <span v-if="!r.section && !r.originalPage" style="color:var(--text-3)">-</span>
+          </td>
+
+          <!-- 置信度 -->
+          <td>
+            <span 
+              v-if="r.confidence" 
+              :class="['conf-mini-badge', r.confidence]"
+            >
+              {{ r.confidence === 'H' ? '高' : (r.confidence === 'M' ? '中' : '低') }}
+            </span>
+            <span v-else style="color:var(--text-3)">-</span>
           </td>
 
           <!-- 淘汰类型 -->
@@ -124,14 +186,14 @@ function closeFilter() {
             <span
               class="action-tag"
               :style="{
-                color:       ACTION_COLORS[r.actionType]?.color,
-                background:  ACTION_COLORS[r.actionType]?.bg,
-                borderColor: ACTION_COLORS[r.actionType]?.border,
+                color:       ACTION_COLORS[r.typeE]?.color,
+                background:  ACTION_COLORS[r.typeE]?.bg,
+                borderColor: ACTION_COLORS[r.typeE]?.border,
               }"
-            >{{ r.actionType }}淘汰</span>
+            >{{ r.typeE }}</span>
           </td>
 
-          <td class="deadline">{{ r.deadline }}</td>
+          <td class="deadline">{{ r.deadline || '永久' }}</td>
 
           <!-- 启用开关 -->
           <td>
@@ -177,11 +239,14 @@ function closeFilter() {
       <button class="pg-btn" :disabled="page <= 1" @click="$emit('update:page', page - 1)">
         <AppIcon name="chevron-left" :size="11" />
       </button>
-      <button
-        v-for="p in totalPages" :key="p"
-        :class="['pg-btn', page === p && 'active']"
-        @click="$emit('update:page', p)"
-      >{{ p }}</button>
+      <template v-for="(p, index) in visiblePages" :key="index">
+        <span v-if="p === '...'" class="pg-ellipsis">...</span>
+        <button
+          v-else
+          :class="['pg-btn', page === p && 'active']"
+          @click="$emit('update:page', p)"
+        >{{ p }}</button>
+      </template>
       <button class="pg-btn" :disabled="page >= totalPages" @click="$emit('update:page', page + 1)">
         <AppIcon name="chevron-right" :size="11" />
       </button>
@@ -245,6 +310,32 @@ function closeFilter() {
 .pg-btn:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
 .pg-btn.active { background: var(--brand); border-color: var(--brand); color: white; font-weight: 600; }
 .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pg-ellipsis { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; font-size: 11px; color: var(--text-3); font-family: "JetBrains Mono", monospace; }
+
+.conf-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.conf-mini-badge.H {
+  background: rgba(43, 217, 168, 0.08);
+  color: var(--ok);
+  border: 1px solid rgba(43, 217, 168, 0.2);
+}
+.conf-mini-badge.M {
+  background: rgba(226, 135, 67, 0.08);
+  color: #d97706;
+  border: 1px solid rgba(226, 135, 67, 0.2);
+}
+.conf-mini-badge.L {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
 
 .empty-state-table { padding: 60px 24px; text-align: center; color: var(--text-3); }
 .empty-state-table .ic { display: flex; justify-content: center; margin-bottom: 8px; }

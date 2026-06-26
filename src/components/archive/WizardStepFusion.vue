@@ -104,8 +104,8 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
             </div>
             <div :class="['flow-badge', step.done ? 'badge-done' : 'badge-skip']">
               <template v-if="step.done">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3L10 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg width="15" height="15" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3L10 3" stroke="#0b9474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 已完成
               </template>
@@ -197,19 +197,22 @@ const doneCount = computed(() => steps.value.filter(s => s.done).length)
   display: grid; place-items: center; flex-shrink: 0;
 }
 .flow-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
 }
-.badge-done { background: rgba(43,217,168,0.15); color: #1aaa88; }
-.badge-skip { background: #f0f2f7; color: var(--text-3); }
+.badge-done { background: rgba(43,217,168,0.2); color: #0b9474; border: 1.5px solid rgba(43,217,168,0.4); }
+.badge-skip { background: #eef0f6; color: var(--text-2); border: 1.5px solid var(--line); }
 
 .flow-step-num { font-size: 11px; color: var(--text-3); font-family: "JetBrains Mono", monospace; letter-spacing: 0.06em; }
 .flow-title { font-size: 16px; font-weight: 700; color: var(--text-0); }
-.flow-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-
-.flow-arrow {
-  display: flex; align-items: center; justify-content: center;
-  padding: 0 4px; background: #fff; border-right: 1px solid var(--line); flex-shrink: 0;
+.flow-desc {
+  font-size: 14px; font-weight: 600; color: var(--brand);
+  line-height: 1.6; margin-top: 4px;
+  padding: 10px 14px; background: #f0f6ff; border-radius: 7px;
+  border-left: 3px solid var(--brand);
+}
+.flow-card.skip .flow-desc {
+  color: var(--text-2); background: #f5f7fb; border-left-color: var(--line-strong);
 }
 
 /* 提示 */

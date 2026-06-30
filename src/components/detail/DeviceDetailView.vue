@@ -23,12 +23,6 @@ async function loadDevice() {
   if (!props.deviceId) return
   loading.value = true
   try {
-    let dev = SAMPLE_DEVICES.find(d => d.id === props.deviceId)
-    if (dev) {
-      device.value = dev
-      return
-    }
-
     const res = await getDevice(props.deviceId)
     if (res) {
       res.typeK = res.typeK || parseTypeK(res.type2)
@@ -52,7 +46,7 @@ async function loadDevice() {
         ruleBatch: res.ruleBatch,
         ruleDeadline: res.ruleDeadline,
         paramGroups: realParamGroups,
-        energyData: (res.energyData && res.energyData.length) ? res.energyData : (templateDev ? JSON.parse(JSON.stringify(templateDev.energyData)) : []),
+        energyData: res.energyData || [],
       }
     } else {
       device.value = null

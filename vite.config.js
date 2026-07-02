@@ -13,8 +13,13 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        //target: 'https://127.0.0.1:7023',
+        // target: 'https://127.0.0.1:7023',
         target: 'https://www.ttbems.com:14440/HPManage',
+        changeOrigin: true,
+        secure: false
+      },
+      '/kouzi': {
+        target: 'http://192.168.68.104:8091',
         changeOrigin: true,
         secure: false
       }

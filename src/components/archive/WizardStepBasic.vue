@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import NameplateOCR from './NameplateOCR.vue'
-import { DEV_TYPES, BUILDING_LIST } from '@/data/devices'
+import { getBuildingList, getEquipmentTypeDict } from '@/api/devices'
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -12,9 +12,31 @@ const emit = defineEmits(['update:data', 'next'])
 const pkg = ref({ ...props.data })
 const errors = ref({})
 
+const buildings = ref([])
+const typeOptions = ref([])
+
+onMounted(async () => {
+  try {
+    const bList = await getBuildingList()
+    buildings.value = bList || []
+  } catch (e) {
+    console.error('获取建筑列表异常:', e)
+  }
+
+  try {
+    const tList = await getEquipmentTypeDict()
+    typeOptions.value = tList || []
+  } catch (e) {
+    console.error('获取设备类型字典异常:', e)
+  }
+})
+
 function set(k, v) {
   pkg.value = { ...pkg.value, [k]: v }
   emit('update:data', { ...pkg.value })
+  if (v && String(v).trim()) {
+    errors.value = { ...errors.value, [k]: '' }
+  }
 }
 
 // ── 建筑搜索下拉 ──────────────────────────────────
@@ -22,8 +44,8 @@ const buildingKeyword = ref(pkg.value.building || '')
 const buildingDropdown = ref(false)
 
 const filteredBuildings = computed(() =>
-  BUILDING_LIST.filter(b =>
-    b.name.includes(buildingKeyword.value) || b.code.includes(buildingKeyword.value)
+  buildings.value.filter(b =>
+    (b.name && b.name.includes(buildingKeyword.value)) || (b.code && b.code.includes(buildingKeyword.value))
   )
 )
 
@@ -38,7 +60,6 @@ function selectBuilding(b) {
 function onBuildingInput(e) {
   buildingKeyword.value = e.target.value
   buildingDropdown.value = true
-  // 清空已选（因为手动输入了）
   pkg.value = { ...pkg.value, building: '', buildingCode: '' }
   emit('update:data', { ...pkg.value })
 }
@@ -51,7 +72,6 @@ function clearBuilding() {
 }
 
 function onBuildingBlur() {
-  // 延迟关闭，让点击选项有时间触发
   setTimeout(() => { buildingDropdown.value = false }, 160)
 }
 
@@ -77,12 +97,60 @@ function syncParams() {
   emit('update:data', { ...pkg.value })
 }
 
-// OCR 回填
+// OCR 智能回填与字典转换匹配
 function onOcrDone(ocr) {
-  pkg.value = { ...pkg.value,
-    typeK: ocr.type1, type2: ocr.type2, model: ocr.model,
-    manufacturer: ocr.manufacturer, year: ocr.year, ocrApplied: true,
+  let matchedTypeId = ''
+  let matchedTypeName = ocr.type2 || ''
+
+  if (typeOptions.value.length > 0) {
+    // 优先采用大类字典进行中文模糊匹配
+    const matched = typeOptions.value.find(t => 
+      t.equipmentTypeName.includes(ocr.type2) || 
+      ocr.type2.includes(t.equipmentTypeName) ||
+      t.equipmentTypeName === ocr.type2
+    )
+    if (matched) {
+      matchedTypeId = matched.equipmentTypeId
+      matchedTypeName = matched.equipmentTypeName
+    } else {
+      // 降级使用 type1 进行粗粒度大类映射
+      const mapping = {
+        'motor': '电动机',
+        'fan': '风机',
+        'pump': '泵',
+        'transformer': '变压器',
+        'boiler': '锅炉',
+        'compressor': '压缩机',
+        'chiller': '制冷'
+      }
+      const chineseName = mapping[ocr.type1] || ''
+      const fallbackMatched = typeOptions.value.find(t => t.equipmentTypeName.includes(chineseName))
+      if (fallbackMatched) {
+        matchedTypeId = fallbackMatched.equipmentTypeId
+        matchedTypeName = fallbackMatched.equipmentTypeName
+      }
+    }
   }
+
+  pkg.value = { ...pkg.value,
+    typeK: matchedTypeId || ocr.typeK || ocr.type1 || '',
+    type2: matchedTypeName || ocr.type2 || '',
+    model: ocr.model,
+    manufacturer: ocr.manufacturer,
+    year: ocr.year,
+    ocrApplied: true,
+  }
+  
+  // OCR 回填后自动清除错误
+  errors.value = {
+    ...errors.value,
+    building: pkg.value.building ? '' : errors.value.building,
+    buildingCode: pkg.value.buildingCode ? '' : errors.value.buildingCode,
+    code: pkg.value.code ? '' : errors.value.code,
+    name: pkg.value.name ? '' : errors.value.name,
+    typeK: pkg.value.typeK ? '' : errors.value.typeK
+  }
+
   if (ocr.params?.length) {
     paramRows.value = ocr.params.map(p => ({ name: p.k, value: p.v }))
     syncParams()
@@ -90,12 +158,34 @@ function onOcrDone(ocr) {
   emit('update:data', { ...pkg.value })
 }
 
-const typeOptions = DEV_TYPES.slice(0, 8)
-
-// 必填校验
-function next() {
-  emit('next')
+function handleTypeChange(e) {
+  const val = e.target.value
+  const matched = typeOptions.value.find(t => t.equipmentTypeId === val)
+  if (matched) {
+    pkg.value = { ...pkg.value, typeK: val, type2: matched.equipmentTypeName }
+    errors.value = { ...errors.value, typeK: '' }
+  } else {
+    pkg.value = { ...pkg.value, typeK: '', type2: '' }
+  }
+  emit('update:data', { ...pkg.value })
 }
+
+// 必填验证逻辑
+function validate() {
+  const errs = {}
+  if (!pkg.value.building || !pkg.value.building.trim()) errs.building = '请选择或搜索建筑名称'
+  if (!pkg.value.buildingCode || !pkg.value.buildingCode.trim()) errs.buildingCode = '建筑编号不能为空'
+  if (!pkg.value.code || !pkg.value.code.trim()) errs.code = '请输入设备编号'
+  if (!pkg.value.name || !pkg.value.name.trim()) errs.name = '请输入设备名称'
+  if (!pkg.value.typeK) errs.typeK = '请选择设备类型'
+
+  errors.value = errs
+  return Object.keys(errs).length === 0
+}
+
+defineExpose({
+  validate
+})
 
 // 完成度
 const progress = computed(() => {
@@ -194,9 +284,11 @@ const progress = computed(() => {
 
         <div :class="['field', errors.typeK && 'has-err']">
           <label class="field-label">设备类型 <span class="req">*</span></label>
-          <select class="input" :value="pkg.typeK || ''" @change="e => set('typeK', e.target.value)">
+          <select class="input" :value="pkg.typeK || ''" @change="handleTypeChange">
             <option value="">请选择设备类型</option>
-            <option v-for="t in typeOptions" :key="t.k" :value="t.k">{{ t.label }}</option>
+            <option v-for="t in typeOptions" :key="t.equipmentTypeId" :value="t.equipmentTypeId">
+              {{ t.equipmentTypeName }}
+            </option>
           </select>
           <div v-if="errors.typeK" class="err-msg">{{ errors.typeK }}</div>
         </div>

@@ -2,12 +2,13 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import AppIcon from '@/components/common/AppIcon.vue'
-import { DATA_MODELS_BY_BUILDING, genNodeEnergyData } from '@/data/dataModels'
+import { getBuildingModels, getNodeEnergyData } from '@/api/devices'
 
 const props = defineProps({ data: { type: Object, required: true } })
 const emit  = defineEmits(['update:data', 'next', 'prev'])
 
-const models = computed(() => DATA_MODELS_BY_BUILDING[props.data.building] || [])
+const models = ref([])
+const loadingModels = ref(false)
 
 const selectedModelId = ref(props.data.dataModelId || '')
 const selectedNodeId  = ref(props.data.dataNodeId  || '')
@@ -24,23 +25,65 @@ const selectedNode  = computed(() => {
   return null
 })
 
+// 加载模型树
+async function loadModels() {
+  loadingModels.value = true
+  try {
+    const list = await getBuildingModels(props.data.buildingCode)
+    models.value = list || []
+    
+    // 如果没有选中的模型，默认选中第一个
+    if (!selectedModelId.value && models.value.length > 0) {
+      selectModel(models.value[0].id)
+    }
+  } catch (e) {
+    console.error('加载建筑模型树异常:', e)
+    models.value = []
+  } finally {
+    loadingModels.value = false
+  }
+}
+
 function selectModel(id) {
   selectedModelId.value = id
   selectedNodeId.value  = ''
   expandedNodes.value   = {}
   modelDropdown.value   = false
+  energyData.value      = []
   emit('update:data', { ...props.data, dataModelId: id, dataNodeId: '' })
 }
+
 function toggleGroup(id) {
   expandedNodes.value = { ...expandedNodes.value, [id]: !expandedNodes.value[id] }
 }
-function selectNode(id) {
+
+async function selectNode(id) {
   selectedNodeId.value = id
   emit('update:data', { ...props.data, dataModelId: selectedModelId.value, dataNodeId: id })
+  await loadEnergyData(id)
 }
 
 // ── 能耗数据 ──────────────────────────────────────────────────────
-const energyData = computed(() => selectedNodeId.value ? genNodeEnergyData(selectedNodeId.value) : [])
+const energyData = ref([])
+const loadingEnergy = ref(false)
+
+async function loadEnergyData(nodeId) {
+  if (!nodeId) {
+    energyData.value = []
+    return
+  }
+  loadingEnergy.value = true
+  try {
+    const data = await getNodeEnergyData(props.data.buildingCode, nodeId)
+    energyData.value = data || []
+  } catch (e) {
+    console.error('加载能耗时序数据异常:', e)
+    energyData.value = []
+  } finally {
+    loadingEnergy.value = false
+  }
+}
+
 const totalKwh   = computed(() => energyData.value.reduce((s, d) => s + d.kwh, 0).toFixed(1))
 const monthKwh   = computed(() => (parseFloat(totalKwh.value) * new Date().getDate()).toFixed(1))
 const yearKwh    = computed(() => {
@@ -50,7 +93,12 @@ const yearKwh    = computed(() => {
 })
 const hourlyData = computed(() => {
   const map = {}
-  energyData.value.forEach(d => { const h = d.time.split(':')[0]; map[h] = (map[h] || 0) + d.kwh })
+  energyData.value.forEach(d => { 
+    if (d.time) {
+      const h = d.time.split(':')[0]
+      map[h] = (map[h] || 0) + d.kwh 
+    }
+  })
   return Array.from({ length: 24 }, (_, i) => ({
     hour: `${String(i).padStart(2,'0')}:00`,
     kwh: parseFloat((map[String(i).padStart(2,'0')] || 0).toFixed(2)),
@@ -95,16 +143,33 @@ function buildOption() {
     }],
   }
 }
+
+function updateChart() {
+  if (!chartRef.value) return
+  if (!chart) {
+    chart = echarts.init(chartRef.value, null, { renderer: 'svg' })
+    ro?.observe(chartRef.value)
+  }
+  chart.setOption(buildOption())
+}
+
+watch(energyData, () => {
+  updateChart()
+})
+
 const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => chart?.resize()) : null
-onMounted(() => { if (selectedNodeId.value && chartRef.value) { chart = echarts.init(chartRef.value, null, { renderer: 'svg' }); chart.setOption(buildOption()); ro?.observe(chartRef.value) } })
-onBeforeUnmount(() => { ro?.disconnect(); chart?.dispose() })
-watch(selectedNodeId, () => {
-  if (!selectedNodeId.value) { chart?.dispose(); chart = null; return }
-  setTimeout(() => {
-    if (!chartRef.value) return
-    if (!chart) { chart = echarts.init(chartRef.value, null, { renderer: 'svg' }); ro?.observe(chartRef.value) }
-    chart.setOption(buildOption())
-  }, 50)
+
+onMounted(async () => {
+  await loadModels()
+  if (selectedNodeId.value) {
+    await loadEnergyData(selectedNodeId.value)
+    updateChart()
+  }
+})
+
+onBeforeUnmount(() => { 
+  ro?.disconnect()
+  chart?.dispose() 
 })
 </script>
 
@@ -151,7 +216,11 @@ watch(selectedNodeId, () => {
 
         <!-- Step 2: 节点树 -->
         <div class="panel-step-label"><span class="step-num">2</span>选择模型节点</div>
-        <div class="tree-body" v-if="selectedModel">
+        <div v-if="loadingModels" class="loading-state" style="padding: 30px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-direction: column;">
+          <div class="ocr-spinner" style="width: 16px; height: 16px; border-width: 2px; border-top-color: var(--brand)"></div>
+          <span style="font-size: 12px; color: var(--text-3)">加载模型树中...</span>
+        </div>
+        <div class="tree-body" v-else-if="selectedModel">
           <div v-for="group in selectedModel.nodes" :key="group.id" class="tree-section">
             <div class="tree-group" @click="toggleGroup(group.id)">
               <span class="tree-arrow">{{ expandedNodes[group.id] ? '▼' : '▶' }}</span>
@@ -177,7 +246,11 @@ watch(selectedNodeId, () => {
       </div>
 
       <!-- 右：数据预览 -->
-      <div class="preview-panel">
+      <div class="preview-panel" style="position: relative;">
+        <div v-if="loadingEnergy" class="loading-state-overlay" style="position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 10;">
+          <div class="ocr-spinner" style="width: 24px; height: 24px; border-width: 2.5px; border-top-color: var(--brand)"></div>
+        </div>
+
         <div v-if="!selectedNodeId" class="preview-empty">
           <AppIcon name="bolt" :size="36" stroke="var(--line-strong)" />
           <div class="h">请先选择模型节点</div>

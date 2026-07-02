@@ -1,12 +1,8 @@
-<script>
-// 模块级：组件重挂载不重置
-let demoCount = 0
-</script>
-
 <script setup>
 import { ref } from 'vue'
+import axios from 'axios'
 import AppIcon from '@/components/common/AppIcon.vue'
-import { OCR_PRESET } from '@/data/devices'
+import { parseTypeK } from '@/data/devices'
 
 const emit = defineEmits(['recognized'])
 
@@ -16,49 +12,108 @@ const previewUrl = ref('')
 const result     = ref([])
 const fileInput  = ref(null)
 
+// 缓存接口真实返回的数据包
+const ocrPackage = ref(null)
+
 function triggerUpload() { fileInput.value.click() }
 
-function runOcr(shouldFail) {
-  phase.value = 'loading'
-  setTimeout(() => {
-    if (shouldFail) {
-      phase.value = 'fail'
-    } else {
-      result.value = OCR_PRESET.fields.map(f => ({ name: f.label, value: f.value }))
-      phase.value = 'done'
-    }
-  }, 1800)
-}
-
-function handleFile(file) {
+async function handleFile(file) {
   if (!file) return
+
+  // 1. 本地图片预览
   const reader = new FileReader()
   reader.onload = e => { previewUrl.value = e.target.result }
   reader.readAsDataURL(file)
-  runOcr(false) // 真实上传默认走成功流程
+
+  // 2. 发起真实 OCR 识别
+  phase.value = 'loading'
+  result.value = []
+  ocrPackage.value = null
+
+  const formData = new FormData()
+  formData.append('multipartFile', file)
+
+  try {
+    const response = await axios.post('/kouzi/ocrWorkFlow', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    console.log('OCR 识别原始返回:', response.data)
+
+    let resData = response.data?.data || response.data
+    // 如果返回的 data 字段为 JSON 字符串，在此自动解析为对象
+    if (typeof resData === 'string') {
+      try {
+        resData = JSON.parse(resData)
+      } catch (parseErr) {
+        console.error('反序列化 OCR data 字符串失败:', parseErr)
+      }
+    }
+
+    if (resData && typeof resData === 'object') {
+      // 匹配核心属性
+      const type2 = resData['产品名称'] || resData['设备名称'] || resData.type2 || resData.typeName || ''
+      const type1 = type2 ? parseTypeK(type2) : 'other'
+      const model = resData['产品型号'] || resData['型号'] || resData.model || resData.modelName || ''
+      const manufacturer = resData['制造商'] || resData['生产厂'] || resData['生产商'] || resData['制造商名称'] || resData.manufacturer || ''
+
+      const dateStr = resData['制造日期'] || resData['出厂日期'] || resData['出厂年份'] || resData.year || ''
+      let year = 2010
+      if (dateStr) {
+        const match = String(dateStr).match(/\b(19\d{2}|20\d{2})\b/)
+        if (match) {
+          year = parseInt(match[1])
+        }
+      }
+
+      // 提取全部的技术参数（不做任何剔除，确保预览与导入完全对齐）
+      const paramsList = []
+      Object.entries(resData).forEach(([k, v]) => {
+        if (k && v && typeof v === 'string') {
+          paramsList.push({ name: k, value: v })
+        }
+      })
+
+      // 拼装用于前端核对展示的键值列表，直接复用 paramsList
+      const viewList = paramsList.map(p => ({ name: p.name, value: p.value }))
+
+      result.value = viewList
+
+      // 封装完整数据包以供 WizardStepBasic 导入回填
+      ocrPackage.value = {
+        type1,
+        typeK: type1,
+        type2,
+        model,
+        manufacturer,
+        year,
+        params: paramsList.map(p => ({ k: p.name, v: p.value, conf: 0.98 }))
+      }
+
+      phase.value = 'done'
+    } else {
+      phase.value = 'fail'
+    }
+  } catch (error) {
+    console.error('OCR 识别请求异常:', error)
+    phase.value = 'fail'
+  }
 }
 
 function onFileChange(e) { handleFile(e.target.files[0]) }
 function onDrop(e) { e.preventDefault(); handleFile(e.dataTransfer.files[0]) }
 
-function useDemo() {
-  demoCount++
-  previewUrl.value = ''
-  const fail = demoCount % 2 === 0 // 偶数次失败，奇数次成功
-  runOcr(fail)
-}
-
 function reset() {
   phase.value = 'idle'
   previewUrl.value = ''
   result.value = []
+  ocrPackage.value = null
 }
 
 function importParams() {
-  emit('recognized', {
-    ...OCR_PRESET,
-    params: result.value.map(r => ({ k: r.name, v: r.value, conf: 0.96 })),
-  })
+  if (ocrPackage.value) {
+    emit('recognized', ocrPackage.value)
+  }
   reset()
 }
 </script>
@@ -68,16 +123,15 @@ function importParams() {
 
     <!-- ① 空态：小上传区 -->
     <div v-if="phase === 'idle'"
-      class="ocr-idle"
-      @click="triggerUpload"
-      @dragover.prevent
-      @drop="onDrop"
+         class="ocr-idle"
+         @click="triggerUpload"
+         @dragover.prevent
+         @drop="onDrop"
     >
       <div class="ocr-idle-icon">
         <AppIcon name="scan" :size="20" stroke="var(--brand)" />
       </div>
       <span class="ocr-idle-text">点击或拖拽上传铭牌照片</span>
-      <button class="ocr-demo-btn" @click.stop="useDemo">使用演示数据</button>
       <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="onFileChange" />
     </div>
 
@@ -93,7 +147,7 @@ function importParams() {
       </div>
     </div>
 
-    <!-- ③ 识别失败 // [TODO] 接入真实接口后此状态由后端返回错误触发 -->
+    <!-- ③ 识别失败 -->
     <div v-else-if="phase === 'fail'" class="ocr-fail">
       <img v-if="previewUrl" :src="previewUrl" class="ocr-thumb" />
       <div v-else class="ocr-thumb ocr-thumb-demo">
@@ -106,7 +160,6 @@ function importParams() {
             <path d="M8 4v5M8 11v1" stroke="#e0394f" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
           <span>识别失败</span>
-          <span class="fail-tag">// [MOCK: 演示失败状态]</span>
         </div>
         <div class="fail-reason">无法从图片中提取有效铭牌信息，可能原因：图片模糊、光线不足、铭牌遮挡或格式不支持。</div>
         <div class="fail-actions">
@@ -165,12 +218,6 @@ function importParams() {
   background: #eaf2ff; display: grid; place-items: center;
 }
 .ocr-idle-text { font-size: 13px; color: var(--text-2); flex: 1; }
-.ocr-demo-btn {
-  font-size: 12px; color: var(--brand);
-  background: white; border: 1px solid var(--line-strong);
-  padding: 5px 12px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
-}
-.ocr-demo-btn:hover { border-color: var(--brand); background: #f0f6ff; }
 
 /* 缩略图 */
 .ocr-thumb {
@@ -212,10 +259,6 @@ function importParams() {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: #e0394f; font-weight: 600;
 }
-.fail-tag {
-  font-size: 10px; font-family: "JetBrains Mono", monospace;
-  color: var(--text-3); font-weight: 400; margin-left: 4px;
-}
 .fail-reason {
   font-size: 12px; color: var(--text-2); line-height: 1.6;
 }
@@ -243,12 +286,13 @@ function importParams() {
   gap: 1px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
 }
 .ocr-result-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 10px; background: #fff; font-size: 12px;
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 10px 14px; background: #fff; font-size: 12px;
+  line-height: 1.5;
 }
 .ocr-result-row:nth-child(even) { background: #f8fafd; }
-.r-name { color: var(--text-2); flex-shrink: 0; }
-.r-val { color: var(--text-0); font-size: 11px; }
+.r-name { color: var(--text-2); flex-shrink: 0; font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.r-val { color: var(--text-0); font-size: 12px; line-height: 1.5; word-break: break-all; }
 
 .ocr-result-actions {
   display: flex; align-items: center; gap: 10px;

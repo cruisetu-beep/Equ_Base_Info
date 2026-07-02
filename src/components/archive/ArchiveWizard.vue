@@ -10,17 +10,91 @@ import WizardStepDocs    from './WizardStepDocs.vue'
 import WizardStepData    from './WizardStepData.vue'
 import WizardStepFusion  from './WizardStepFusion.vue'
 
-defineEmits(['exit'])
+const emit = defineEmits(['exit'])
 
 const STEP_COUNT = 4
 
+import { addDevice } from '@/api/devices'
+
 const stepIdx = ref(0)
 const pkg     = ref({ docs: {} })
+const submitting = ref(false)
+const basicStepRef = ref(null)
 
 function next() { stepIdx.value = Math.min(STEP_COUNT - 1, stepIdx.value + 1) }
 function prev() { stepIdx.value = Math.max(0, stepIdx.value - 1) }
 
 function updatePkg(val) { pkg.value = val }
+
+function handleNextStep() {
+  if (stepIdx.value === 0) {
+    if (basicStepRef.value && basicStepRef.value.validate()) {
+      next()
+    }
+  } else {
+    next()
+  }
+}
+
+async function submitArchive(nextAction) {
+  submitting.value = true
+  try {
+    const paramsList = []
+    if (pkg.value.paramGroups) {
+      pkg.value.paramGroups.forEach(g => {
+        if (g.items) {
+          g.items.forEach(i => {
+            if (i.name && i.name.trim()) {
+              paramsList.push({ name: i.name.trim(), value: i.value || '' })
+            }
+          })
+        }
+      })
+    }
+
+    const filesList = []
+    if (pkg.value.docs) {
+      Object.values(pkg.value.docs).forEach(arr => {
+        if (Array.isArray(arr)) {
+          arr.forEach(f => {
+            if (f.name) {
+              filesList.push({ name: f.name, size: f.size || 0 })
+            }
+          })
+        }
+      })
+    }
+
+    const payload = {
+      code: pkg.value.code || '',
+      name: pkg.value.name || '',
+      typeK: pkg.value.typeK || '',
+      type2: pkg.value.type2 || '',
+      building: pkg.value.building || '',
+      buildingCode: pkg.value.buildingCode || '',
+      model: pkg.value.model || '',
+      year: parseInt(pkg.value.year) || 2010,
+      manufacturer: pkg.value.manufacturer || '',
+      params: paramsList,
+      files: filesList
+    }
+
+    console.log('提交新设备载荷:', payload)
+    await addDevice(payload)
+
+    if (nextAction === 'exit') {
+      emit('exit')
+    } else {
+      pkg.value = { docs: {} }
+      stepIdx.value = 0
+    }
+  } catch (err) {
+    console.error('提交新设备异常:', err)
+    alert('保存新设备失败，请稍后重试。')
+  } finally {
+    submitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -46,30 +120,31 @@ function updatePkg(val) { pkg.value = val }
     <div class="wizard-body">
       <div class="wizard-content">
         <WizardStepBasic
-          v-if="stepIdx === 0"
-          :data="pkg"
-          @update:data="updatePkg"
-          @next="next"
+            v-if="stepIdx === 0"
+            ref="basicStepRef"
+            :data="pkg"
+            @update:data="updatePkg"
+            @next="next"
         />
         <WizardStepDocs
-          v-else-if="stepIdx === 1"
-          :data="pkg"
-          @update:data="updatePkg"
-          @next="next"
-          @prev="prev"
+            v-else-if="stepIdx === 1"
+            :data="pkg"
+            @update:data="updatePkg"
+            @next="next"
+            @prev="prev"
         />
         <WizardStepData
-          v-else-if="stepIdx === 2"
-          :data="pkg"
-          @update:data="updatePkg"
-          @next="next"
-          @prev="prev"
+            v-else-if="stepIdx === 2"
+            :data="pkg"
+            @update:data="updatePkg"
+            @next="next"
+            @prev="prev"
         />
         <WizardStepFusion
-          v-else-if="stepIdx === 3"
-          :data="pkg"
-          @next="$emit('exit')"
-          @prev="prev"
+            v-else-if="stepIdx === 3"
+            :data="pkg"
+            @next="$emit('exit')"
+            @prev="prev"
         />
       </div>
 
@@ -82,14 +157,22 @@ function updatePkg(val) { pkg.value = val }
           <div style="margin-left:auto; display:flex; gap:10px">
             <template v-if="stepIdx < 3">
               <button class="btn ghost">保存草稿</button>
-              <button class="btn primary" @click="next">
+              <button class="btn primary" @click="handleNextStep">
                 下一步 <AppIcon name="chevron-right" :size="14" />
               </button>
             </template>
             <template v-else>
-              <button class="btn ghost" @click="$emit('exit')">继续录入下一台</button>
-              <button class="btn primary" @click="$emit('exit')">
-                <AppIcon name="check" :size="14" stroke="#fff" /> 完成 · 返回总览
+              <button class="btn ghost" :disabled="submitting" @click="submitArchive('next')">
+                {{ submitting ? '保存中...' : '继续录入下一台' }}
+              </button>
+              <button class="btn primary" :disabled="submitting" @click="submitArchive('exit')">
+                <template v-if="submitting">
+                  <div class="ocr-spinner" style="width:12px; height:12px; border-width:1.5px; border-top-color:#fff; margin-right:6px"></div>
+                  正在保存...
+                </template>
+                <template v-else>
+                  <AppIcon name="check" :size="14" stroke="#fff" /> 完成 · 返回总览
+                </template>
               </button>
             </template>
           </div>

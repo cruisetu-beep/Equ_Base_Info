@@ -48,7 +48,7 @@ export async function addDevice(device) {
     }
     return newDev
   }
-  return axios.post(`${BASE_URL}/devices`, device).then(r => r.data)
+  return axios.post(`${BASE_URL}/Equipment/createEquipment`, device).then(r => r.data.data || r.data)
 }
 
 /**
@@ -96,4 +96,50 @@ export async function getEquipmentTypeDict() {
     ]
   }
   return axios.get(`${BASE_URL}/Equipment/getTypeDict`).then(r => r.data.data || r.data)
+}
+
+/**
+ * 获取建筑列表
+ * @returns {Promise<Array>}
+ */
+export async function getBuildingList() {
+  if (USE_MOCK) {
+    await delay(100)
+    return [
+      { code: "310101A001", name: "瑞金大厦" },
+      { code: "310101A002", name: "浦东国际金融中心 T1" }
+    ]
+  }
+  return axios.get(`${BASE_URL}/Equipment/getBuildingList`).then(r => r.data.data || r.data)
+}
+
+/**
+ * 获取指定建筑的能耗模型树列表
+ * @param {string} buildId 
+ * @returns {Promise<Array>}
+ */
+export async function getBuildingModels(buildId) {
+  if (USE_MOCK) {
+    await delay(100)
+    return []
+  }
+  return axios.get(`${BASE_URL}/Equipment/getBuildingModels`, {
+    params: { buildId }
+  }).then(r => r.data.data || r.data)
+}
+
+/**
+ * 获取指定节点的时序能耗数据
+ * @param {string} buildId 
+ * @param {string} nodeId 
+ * @returns {Promise<Array>}
+ */
+export async function getNodeEnergyData(buildId, nodeId) {
+  if (USE_MOCK) {
+    await delay(100)
+    return []
+  }
+  return axios.get(`${BASE_URL}/Equipment/getNodeEnergyData`, {
+    params: { buildId, nodeId }
+  }).then(r => r.data.data || r.data)
 }

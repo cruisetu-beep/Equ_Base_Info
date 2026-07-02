@@ -19,6 +19,7 @@ export default defineConfig({
         secure: false
       },
       '/kouzi': {
+        // target: 'http://127.0.0.1:8091',
         target: 'http://192.168.68.104:8091',
         changeOrigin: true,
         secure: false

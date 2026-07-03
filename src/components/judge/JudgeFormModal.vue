@@ -1,101 +1,206 @@
 <script setup>
 // ── components/judge/JudgeFormModal.vue ───────────────────────────
-// 设备淘汰判定档案查看与人工直判表单统一弹窗，支持只读查看/人工直判/档案二次修改
-import { ref, watch, onMounted } from 'vue'
+// 设备淘汰判定档案多Tab查看与单独修改弹窗，支持多维度判定显示、自定义流程增加、单条极速保存
+import { ref, onMounted, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
-import { getObsoleteBatches, getEliminationTypesFromDb, saveJudgeResults } from '@/api/judge'
+import { getObsoleteBatches, getEliminationTypesFromDb, getJudgeBasisList, saveSingleBasis } from '@/api/judge'
 import { getRuleList } from '@/api/rules'
 
 const props = defineProps({
   show:   { type: Boolean, default: false },
-  device: { type: Object,  required: true },
-  basis:  { type: Object,  default: null }  // 已存的淘汰档案依据，为空代表“新建人工判定”
+  device: { type: Object,  required: true }
 })
 const emit = defineEmits(['close', 'success'])
 
-const isEdit       = ref(false)
 const saving       = ref(false)
+const basisList    = ref([]) // 该设备的所有有效淘汰档案列表
+const activeTab    = ref('') // 当前处于活跃状态的流程 Tab 名称
 
-// 表单输入
-const selectedStatus   = ref('正常') // 正常 | 限期淘汰 | 强制淘汰
-const selectedBatch    = ref('')
-const selectedRuleId   = ref('')
-const judgmentCriteria = ref('')
-const desc             = ref('')
+// 当前 Tab 对应的档案编辑表单数据
+const activeForm = ref({
+  basisId: 0,
+  judgmentProcess: '',
+  eliminationType: '正常',
+  selectedBatch: '',
+  selectedRuleId: '',
+  judgmentCriteria: '',
+  desc: '',
+  rulesOfBatch: [],
+  isEdit: false
+})
+
+
 
 // 下拉字典数据
 const batches          = ref([])
-const rulesOfBatch     = ref([])
 const eliminationTypes = ref(['强制淘汰', '限期淘汰', '正常'])
 
-// 初始化状态
-const initForm = async () => {
-  saving.value = false
-  
-  // 1. 获取动态淘汰类型列表
+// 统一标准化的最终结论回显转换函数，防止前后端字样差异导致下拉框空白
+const normType = (type) => {
+  if (!type || type === '正常') return '正常'
+  if (type.includes('强制')) return '强制淘汰'
+  if (type.includes('限期')) return '限期淘汰'
+  if (type.includes('过渡')) return '过渡淘汰'
+  return type
+}
+
+// 加载该设备的全部淘汰判定记录
+const loadBasisList = async () => {
   try {
-    const types = await getEliminationTypesFromDb()
-    if (types && types.length > 0) {
-      // 规范化加上“淘汰”后缀以兼容回显
-      const list = types.map(t => {
-        if (!t || t === '正常') return t
-        return t.endsWith('淘汰') ? t : t + '淘汰'
-      })
-      // 确保包含“正常”选项
-      if (!list.includes('正常')) list.push('正常')
-      eliminationTypes.value = list
-    }
-  } catch (err) {
-    console.error('获取淘汰类型列表失败:', err)
-  }
-
-  // 2. 获取批次列表
-  try {
-    const batchList = await getObsoleteBatches()
-    batches.value = batchList || []
-  } catch (err) {
-    console.error('获取批次列表失败:', err)
-  }
-
-  // 3. 根据是否传入已有的 basis 档案决定模式
-  if (props.basis) {
-    isEdit.value = false // 默认只读查看模式
-    selectedStatus.value = props.basis.eliminationType || '正常'
-    judgmentCriteria.value = props.basis.judgmentCriteria || ''
-    desc.value = props.basis.desc || ''
-    selectedRuleId.value = props.basis.ruleId || ''
-
-    if (props.basis.ruleId) {
-      // 如果已绑定规则，查出该规则详情以匹配批次，并拉取该批次下的全部规则列表以供编辑时重新选择
-      try {
-        // 通过 ruleId 查规则（通过 getRuleList 检索）
-        const ruleRes = await getRuleList({ Q: props.basis.ruleId, PageSize: 1 })
-        if (ruleRes && ruleRes.table && ruleRes.table.length > 0) {
-          const ruleObj = ruleRes.table[0]
-          selectedBatch.value = ruleObj.batch || ''
-          if (ruleObj.batch) {
-            const batchRulesRes = await getRuleList({ FilterBatch: ruleObj.batch, PageSize: 9999 })
-            rulesOfBatch.value = batchRulesRes.table || []
-          } else {
-            rulesOfBatch.value = [ruleObj]
-          }
+    const equId = props.device.id || props.device.equId
+    const list = await getJudgeBasisList(equId)
+    basisList.value = list || []
+    
+    // 对存量数据进行流程分类名称的智能识别与兜底映射，防止页面上显示空白页签
+    basisList.value.forEach(x => {
+      const p = x.judgmentProcess || x.JudgmentProcess
+      if (!p) {
+        const method = x.matchMethod || x.MatchMethod || ''
+        const ruleId = x.ruleId || x.RuleId
+        if (method.includes('能效') || method.includes('能耗')) {
+          x.judgmentProcess = '能效判定'
+        } else if (method.includes('AI') || method.includes('智能')) {
+          x.judgmentProcess = 'AI判定'
+        } else if (ruleId) {
+          x.judgmentProcess = '规则判定'
+        } else {
+          x.judgmentProcess = '人工判定'
         }
-      } catch (err) {
-        console.error('拉取已绑定规则详情及同批次规则失败:', err)
+      } else {
+        x.judgmentProcess = p
       }
+    })
+    
+    // 如果没有任何判定记录，默认在本地塞入一条“人工判定”作为初始展示
+    if (basisList.value.length === 0) {
+      basisList.value.push({
+        basisId: 0,
+        equId: equId,
+        buildId: props.device.buildingId || props.device.buildId || 'BUILD-0001',
+        judgmentProcess: '人工判定',
+        eliminationType: '正常',
+        judgmentCriteria: '经核对物理铭牌参数，不满足任何高耗能落后目录判定特征，判定为能效正常设备。',
+        desc: '人工直接判定正常。'
+      })
     }
-  } else {
-    isEdit.value = true // 默认新建人工判定模式
-    selectedStatus.value = '正常'
-    selectedBatch.value = ''
-    selectedRuleId.value = ''
-    judgmentCriteria.value = '经核对物理铭牌参数，不满足任何高耗能落后目录判定特征，判定为能效正常设备。'
-    desc.value = '人工直接判定正常。'
-    rulesOfBatch.value = []
+    
+    // 默认选中现有的第一个流程 Tab，如果之前已有选中且该流程仍然存在则保留
+    const defaultProc = activeTab.value && basisList.value.some(x => x.judgmentProcess === activeTab.value)
+      ? activeTab.value
+      : basisList.value[0].judgmentProcess
+      
+    selectTab(defaultProc)
+  } catch (err) {
+    console.error('加载设备判定档案失败:', err)
+    // 降级防空保护：即使查询接口故障（如后端未重新编译部署），也默认提供人工判定 Tab 供使用
+    const equId = props.device.id || props.device.equId
+    basisList.value = [{
+      basisId: 0,
+      equId: equId,
+      buildId: props.device.buildingId || props.device.buildId || 'BUILD-0001',
+      judgmentProcess: '人工判定',
+      eliminationType: '正常',
+      judgmentCriteria: '经核对物理铭牌参数，不满足任何高耗能落后目录判定特征，判定为能效正常设备。',
+      desc: '由于拉取失败，已自动降级开启人工直接判定。'
+    }]
+    selectTab('人工判定')
   }
 }
 
-// 监听弹窗显示
+// 切换流程 Tab (在此状态下切换完全不会触发多余的 API 请求)
+const selectTab = (procName) => {
+  activeTab.value = procName
+  
+  const match = basisList.value.find(x => x.judgmentProcess === procName)
+  
+  if (match) {
+    const bId = match.basisId || match.BasisId || 0
+    activeForm.value = {
+      basisId: bId,
+      judgmentProcess: procName,
+      eliminationType: normType(match.eliminationType || match.EliminationType || '正常'),
+      selectedBatch: '',
+      selectedRuleId: match.ruleId || match.RuleId || '',
+      judgmentCriteria: match.judgmentCriteria || match.JudgmentCriteria || '',
+      desc: match.desc || match.Desc || '',
+      rulesOfBatch: [],
+      isEdit: bId === 0 // 尚未写入过数据库的新增 Tab 默认可编辑，已有的默认只读
+    }
+  } else {
+    activeForm.value = {
+      basisId: 0,
+      judgmentProcess: procName,
+      eliminationType: '正常',
+      selectedBatch: '',
+      selectedRuleId: '',
+      judgmentCriteria: `经${procName}校验，该设备符合能效标准，未检出落后指标。`,
+      desc: '',
+      rulesOfBatch: [],
+      isEdit: true
+    }
+  }
+}
+
+// 进入编辑状态时延迟拉取规则数据
+const enterEditMode = async () => {
+  activeForm.value.isEdit = true
+  const ruleId = activeForm.value.selectedRuleId
+  if (ruleId && activeForm.value.rulesOfBatch.length === 0) {
+    try {
+      const ruleRes = await getRuleList({ Q: ruleId, PageSize: 1 })
+      if (ruleRes && ruleRes.table && ruleRes.table.length > 0) {
+        const ruleObj = ruleRes.table[0]
+        activeForm.value.selectedBatch = ruleObj.batch || ''
+        if (ruleObj.batch) {
+          const batchRulesRes = await getRuleList({ FilterBatch: ruleObj.batch, PageSize: 9999 })
+          activeForm.value.rulesOfBatch = batchRulesRes.table || []
+        } else {
+          activeForm.value.rulesOfBatch = [ruleObj]
+        }
+      }
+    } catch (err) {
+      console.error('拉取已绑定规则详情失败:', err)
+    }
+  }
+}
+
+// 初始化状态
+let isInitializing = false
+const initForm = async () => {
+  if (isInitializing) return
+  isInitializing = true
+  try {
+    saving.value = false
+    
+    // 1. 获取动态淘汰类型列表
+    try {
+      const types = await getEliminationTypesFromDb()
+      if (types && types.length > 0) {
+        const list = types.map(t => (t === '正常') ? t : (t.endsWith('淘汰') ? t : t + '淘汰'))
+        if (!list.includes('正常')) list.push('正常')
+        eliminationTypes.value = list
+      }
+    } catch (err) {
+      console.error('获取淘汰类型列表失败:', err)
+    }
+
+    // 2. 获取批次列表
+    try {
+      const batchList = await getObsoleteBatches()
+      batches.value = batchList || []
+    } catch (err) {
+      console.error('获取批次列表失败:', err)
+    }
+    
+    // 3. 拉取并初始化该设备的判定记录列表
+    await loadBasisList()
+  } finally {
+    isInitializing = false
+  }
+}
+
+// 挂载时与 show 状态变化时双通道执行初始化，拉取该设备的全部淘汰判定记录
+onMounted(initForm)
 watch(() => props.show, (newVal) => {
   if (newVal) {
     initForm()
@@ -103,40 +208,67 @@ watch(() => props.show, (newVal) => {
 })
 
 // 级联选择：批次联动拉取规则
-watch(selectedBatch, async (newBatch) => {
-  if (!isEdit.value) return // 移除限制，允许在修改已有档案时重选批次联动更新规则
-  if (!newBatch) {
-    rulesOfBatch.value = []
+const handleBatchChange = async () => {
+  activeForm.value.selectedRuleId = ''
+  if (!activeForm.value.selectedBatch) {
+    activeForm.value.rulesOfBatch = []
     return
   }
   try {
-    const res = await getRuleList({ FilterBatch: newBatch, PageSize: 9999 })
-    rulesOfBatch.value = res.table || []
+    const res = await getRuleList({ FilterBatch: activeForm.value.selectedBatch, PageSize: 9999 })
+    activeForm.value.rulesOfBatch = res.table || []
   } catch (err) {
     console.error('根据批次获取规则列表失败:', err)
   }
-})
+}
 
 // 级联选择：规则选择后自动带入参数
-watch(selectedRuleId, (newRuleId) => {
-  if (!isEdit.value) return // 移除限制，允许在修改已有档案时重新绑定规则并联动预填
+const handleRuleChange = () => {
+  const newRuleId = activeForm.value.selectedRuleId
   if (!newRuleId) return
-  const ruleObj = rulesOfBatch.value.find(r => r.ruleId === newRuleId)
+  const ruleObj = activeForm.value.rulesOfBatch.find(r => r.ruleId === newRuleId)
   if (ruleObj) {
-    // 联动预填
-    selectedStatus.value = ruleObj.typeE === '强制' ? '强制淘汰' : '限期淘汰'
-    judgmentCriteria.value = `型号${ruleObj.modelSeries ? '前缀' : '精确'}匹配: ${ruleObj.modelSeries || props.device.model || '—'}, 规则: ${ruleObj.ruleId}, 批次: ${selectedBatch.value}`
-    desc.value = `依据标准：${ruleObj.nationalStandard || ruleObj.product || '无'}; 截止淘汰日期：${ruleObj.deadline || '无'}`
+    activeForm.value.eliminationType = ruleObj.typeE === '强制' ? '强制淘汰' : '限期淘汰'
+    activeForm.value.judgmentCriteria = `型号${ruleObj.modelSeries ? '前缀' : '精确'}匹配: ${ruleObj.modelSeries || props.device.model || '—'}, 规则: ${ruleObj.ruleId}, 批次: ${activeForm.value.selectedBatch}`
+    activeForm.value.desc = `依据标准：${ruleObj.nationalStandard || ruleObj.product || '无'}; 截止淘汰日期：${ruleObj.deadline || '无'}`
   }
-})
+}
 
-// 保存人工判定 / 更新
+// 点击 '+' 新增一个判定流程，自动按已有序号递增生成
+const handleAddProcess = () => {
+  const customCount = basisList.value.filter(x => x.judgmentProcess.startsWith('人工判定')).length
+  const name = `人工判定${customCount + 1}`
+  
+  // 在本地列表插入一个临时的空白档案项
+  const equId = props.device.id || props.device.equId
+  const newTemp = {
+    basisId: 0,
+    equId: equId,
+    buildId: props.device.buildingId || props.device.buildId || 'BUILD-0001',
+    judgmentProcess: name,
+    eliminationType: '正常',
+    judgmentCriteria: `经【${name}】人工校验，判定为正常。`,
+    desc: '用户新增判定流程。',
+    isNew: true
+  }
+  basisList.value.push(newTemp)
+  
+  // 切换过去并开启编辑
+  selectTab(name)
+}
+
+// 单条判定结果独立保存
 const handleSave = async () => {
-  if (!selectedStatus.value) {
+  const form = activeForm.value
+  if (!form.judgmentProcess.trim()) {
+    alert('请输入判定流程名称！')
+    return
+  }
+  if (!form.eliminationType) {
     alert('请选择判定结论状态！')
     return
   }
-  if (!judgmentCriteria.value.trim()) {
+  if (!form.judgmentCriteria.trim()) {
     alert('请输入判定依据描述！')
     return
   }
@@ -144,24 +276,26 @@ const handleSave = async () => {
   saving.value = true
   try {
     const saveItem = {
+      basisId: form.basisId,
       equId: props.device.id || props.device.equId,
       buildId: props.device.buildingId || props.device.buildId || 'BUILD-0001',
-      ruleId: selectedRuleId.value || null,
-      eliminationType: selectedStatus.value,
-      matchMethod: props.basis 
-        ? (props.basis.matchMethod || '人工二次修正') 
-        : '规则库级联选择判定',
-      judgmentCriteria: judgmentCriteria.value.trim(),
-      desc: desc.value.trim()
+      ruleId: form.selectedRuleId || null,
+      eliminationType: form.eliminationType,
+      matchMethod: form.basisId > 0 ? '人工二次修正' : '人工直接判定',
+      judgmentCriteria: form.judgmentCriteria.trim(),
+      desc: form.desc.trim(),
+      judgmentProcess: form.judgmentProcess.trim()
     }
 
-    const success = await saveJudgeResults([saveItem])
+    const success = await saveSingleBasis(saveItem)
     if (success) {
-      alert(props.basis ? '淘汰判定档案已成功订正更新！' : '设备判定档案已建立成功！')
-      emit('success', saveItem)
-      emit('close')
+      alert('当前判定流程的档案已成功保存！')
+      
+      // 重新加载列表保持同步
+      await loadBasisList()
+      emit('success')
     } else {
-      throw new Error('写档未返回成功状态')
+      throw new Error('单条写档未返回成功状态')
     }
   } catch (err) {
     console.error('保存淘汰判定失败:', err)
@@ -178,11 +312,11 @@ const handleSave = async () => {
     <div class="modal-window">
       
       <!-- 头部 -->
-      <div class="modal-head">
+      <div class="modal-head" style="padding:16px 20px; border-bottom:1px solid var(--line);">
         <div class="ic">
-          <AppIcon :name="props.basis ? 'archive' : 'zap'" :size="20" stroke="var(--brand-2)" />
+          <AppIcon name="archive" :size="20" stroke="var(--brand-2)" />
         </div>
-        <h3>{{ props.basis ? '设备淘汰判定档案' : '人工淘汰判定直录表' }}</h3>
+        <h3>设备淘汰判定档案</h3>
         <span class="dev-badge">{{ props.device.name }} ({{ props.device.code }})</span>
         <button class="close-btn" @click="$emit('close')">
           <AppIcon name="close" :size="16" />
@@ -190,108 +324,151 @@ const handleSave = async () => {
       </div>
 
       <!-- 主滚动区域 -->
-      <div class="modal-body">
+      <div class="modal-body" style="padding:16px 20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
         
-        <!-- 设备基本档案（只读展示，带锁定锁标志） -->
-        <div class="form-section">
-          <h5><AppIcon name="lock" :size="12" /> 受保护唯一标识（不可改）</h5>
-          <div class="readonly-badge-grid">
-            <div class="rb-item">
-              <span class="k">系统主键 (F_BasisID)</span>
-              <span class="v mono">{{ props.basis ? props.basis.basisId : '（自动生成）' }}</span>
-            </div>
-            <div class="rb-item">
-              <span class="k">设备编码 (F_EquID)</span>
-              <span class="v mono">{{ props.device.id || props.device.equId }}</span>
-            </div>
-            <div class="rb-item">
-              <span class="k">建筑编码 (F_BuildID)</span>
-              <span class="v mono">{{ props.device.buildingId || props.device.buildId || 'BUILD-0001' }}</span>
+        <!-- 判定流程选项卡及追加功能 (挪到最顶层) -->
+        <div class="form-section" style="padding:0; margin:0;">
+          <div class="modal-proc-tabs" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+            <button 
+              v-for="proc in basisList" 
+              :key="proc.judgmentProcess"
+              class="proc-tab-btn"
+              :class="{ active: activeTab === proc.judgmentProcess }"
+              @click="selectTab(proc.judgmentProcess)"
+              style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid var(--line); transition:all 0.2s;"
+              :style="activeTab === proc.judgmentProcess
+                ? 'background: var(--brand-08); color: var(--brand); border-color: var(--brand);'
+                : 'background: var(--bg-hover); color: var(--text-2);'"
+            >
+              {{ proc.judgmentProcess }} ({{ (proc.eliminationType || proc.EliminationType) !== '正常' ? '淘汰' : '正常' }})
+            </button>
+
+            <!-- 动态增加判定结果入口 (点击直接一键添加) -->
+            <div class="add-proc-trigger" @click="handleAddProcess" 
+                 style="padding:5px 12px; border-radius:6px; border:1px dashed var(--brand); color:var(--brand); font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <AppIcon name="plus" :size="12" />
+              <span>增加结果</span>
             </div>
           </div>
         </div>
 
-        <div class="form-divider" />
-
-        <!-- 判定条件与录入区域 -->
-        <div class="form-section">
-          <h5><AppIcon name="edit" :size="12" /> 判定内容与调整结论</h5>
+        <!-- 判定数据表单区（数据跟随 Tab 切换） -->
+        <div class="form-section" style="padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
           
-          <div class="form-grid-2" style="margin-top:12px">
+          <!-- 设备与系统底层关联键（无显式分组标题，直观且不可编辑） -->
+          <div class="readonly-badge-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+            <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
+              <span class="k" style="font-size:11px; color:var(--text-3);">系统主键 (F_BasisID)</span>
+              <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ activeForm.basisId > 0 ? activeForm.basisId : '（自动生成）' }}</span>
+            </div>
+            <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
+              <span class="k" style="font-size:11px; color:var(--text-3);">设备编码 (F_EquID)</span>
+              <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ props.device.id || props.device.equId }}</span>
+            </div>
+            <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
+              <span class="k" style="font-size:11px; color:var(--text-3);">建筑编码 (F_BuildID)</span>
+              <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ props.device.buildingId || props.device.buildId || 'BUILD-0001' }}</span>
+            </div>
+          </div>
+
+          <!-- 核心属性表单录入网格 -->
+          <div class="form-grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:4px;">
+            <!-- 判定流程大类 (支持手动修改或输入分类) -->
+            <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定流程大类 (F_JudgmentProcess) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
+              <input 
+                v-model="activeForm.judgmentProcess" 
+                :disabled="!activeForm.isEdit" 
+                type="text" 
+                class="input"
+                placeholder="例如：规则判定、能效判定、人工判定"
+                style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);"
+              />
+            </div>
             <!-- 判定状态 -->
-            <div class="form-row">
-              <label>判定最终结论 (F_EliminationType) <span class="req" v-if="isEdit">*</span></label>
-              <select v-model="selectedStatus" :disabled="!isEdit" class="select">
+            <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定最终结论 (F_EliminationType) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
+              <select v-model="activeForm.eliminationType" :disabled="!activeForm.isEdit" class="select" style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);">
                 <option v-for="t in eliminationTypes" :key="t" :value="t">{{ t }}</option>
               </select>
             </div>
           </div>
 
           <!-- 级联选择规则 -->
-          <div class="cascade-section form-grid-2" style="margin-top:12px">
-            <div class="form-row">
-              <label>1. 筛选淘汰批次</label>
-              <select v-model="selectedBatch" :disabled="!isEdit" class="select">
+          <div class="cascade-section form-grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">1. 筛选淘汰批次</label>
+              <select v-model="activeForm.selectedBatch" :disabled="!activeForm.isEdit" class="select" @change="handleBatchChange" style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);">
                 <option value="">-- 请选择判定批次 --</option>
                 <option v-for="b in batches" :key="b" :value="b">{{ b }}</option>
               </select>
             </div>
-            <div class="form-row">
-              <label>2. 关联目录规则 (F_RuleID)</label>
-              <select v-model="selectedRuleId" :disabled="!isEdit || !selectedBatch" class="select">
+            <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">2. 关联目录规则 (F_RuleID)</label>
+              <select v-model="activeForm.selectedRuleId" :disabled="!activeForm.isEdit || !activeForm.selectedBatch" class="select" @change="handleRuleChange" style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);">
                 <option value="">-- 请选择匹配规则 --</option>
-                <option v-for="r in rulesOfBatch" :key="r.ruleId" :value="r.ruleId">
+                <option v-for="r in activeForm.rulesOfBatch" :key="r.ruleId" :value="r.ruleId">
                   [{{ r.ruleId }}] {{ r.product || r.modelSeries }}
                 </option>
               </select>
             </div>
           </div>
 
-          <div class="form-row" style="margin-top:14px">
-            <label>判定依据文字描述 (F_JudgmentCriteria) <span class="req" v-if="isEdit">*</span></label>
+          <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定依据文字描述 (F_JudgmentCriteria) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
             <textarea 
-              v-model="judgmentCriteria" 
-              :disabled="!isEdit" 
+              v-model="activeForm.judgmentCriteria" 
+              :disabled="!activeForm.isEdit" 
               rows="3" 
               class="textarea" 
               placeholder="请输入最终归档的淘汰判定文字证据或事实依据描述..."
+              style="border-radius:6px; border:1px solid var(--line); padding:8px 10px; font-size:13px; outline:none; background:var(--bg-card); resize:vertical;"
             />
           </div>
 
-          <div class="form-row" style="margin-top:14px">
-            <label>备注补充说明 (F_Desc)</label>
+          <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:500; color:var(--text-1);">备注补充说明 (F_Desc)</label>
             <textarea 
-              v-model="desc" 
-              :disabled="!isEdit" 
+              v-model="activeForm.desc" 
+              :disabled="!activeForm.isEdit" 
               rows="2" 
               class="textarea" 
               placeholder="可输入判定档案的备注说明，如改造计划、现场踏勘结论等..."
+              style="border-radius:6px; border:1px solid var(--line); padding:8px 10px; font-size:13px; outline:none; background:var(--bg-card); resize:vertical;"
             />
           </div>
 
-          <!-- 如果是只读查看，展示归档人与时间 -->
-          <div class="archive-meta" v-if="props.basis && !isEdit">
-            <div><span class="lbl">判定方式：</span>{{ props.basis.matchMethod || '规则自动判定' }}</div>
-            <div><span class="lbl">判定日期：</span>{{ props.basis.judgmentDate ? props.basis.judgmentDate.slice(0, 10) : '—' }}</div>
+          <!-- 只读模式且已有数据库记录时显示历史回显 -->
+          <div class="archive-meta" v-if="activeForm.basisId > 0 && !activeForm.isEdit" style="margin-top:4px; padding:10px 12px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); font-size:12px; display:flex; justify-content:space-between; color:var(--text-3);">
+            <div>
+              <span class="lbl" style="font-weight:500;">判定方式：</span>
+              {{ basisList.find(x => x.basisId === activeForm.basisId)?.matchMethod || basisList.find(x => x.basisId === activeForm.basisId)?.MatchMethod || '人工直接判定' }}
+            </div>
+            <div>
+              <span class="lbl" style="font-weight:500;">判定时间：</span>
+              {{ (basisList.find(x => x.basisId === activeForm.basisId)?.judgmentDate || basisList.find(x => x.basisId === activeForm.basisId)?.JudgmentDate || '').slice(0, 19).replace('T', ' ') || '—' }}
+            </div>
           </div>
         </div>
 
       </div>
 
       <!-- 底部控制栏 -->
-      <div class="modal-foot">
-        <template v-if="!isEdit">
+      <div class="modal-foot" style="padding:14px 20px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px; background:var(--bg-card);">
+        <template v-if="!activeForm.isEdit">
           <button class="btn ghost" @click="$emit('close')">关闭</button>
-          <button class="btn primary" @click="isEdit = true">
+          <button class="btn primary" @click="enterEditMode">
             <AppIcon name="edit" :size="13" /> 修改判定档案
           </button>
         </template>
         <template v-else>
-          <button class="btn ghost" :disabled="saving" @click="props.basis ? (isEdit = false) : $emit('close')">取消</button>
+          <button class="btn ghost" :disabled="saving" @click="activeForm.basisId > 0 ? (activeForm.isEdit = false) : loadBasisList()">
+            取消
+          </button>
           <button class="btn primary" :disabled="saving" @click="handleSave">
             <div v-if="saving" class="spin-icon"></div>
             <AppIcon v-else name="save" :size="13" />
-            保存判定档案
+            保存此流程档案
           </button>
         </template>
       </div>

@@ -3,12 +3,15 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP } from '@/data/devices'
-import { getJudgeEquipmentList, getDistinctFilterYears, getDistinctFilterBrands } from '@/api/judge'
+import { getJudgeEquipmentList, getDistinctFilterYears, getDistinctFilterBrands, getJudgmentProcessDict } from '@/api/judge'
 import JudgeFormModal from './JudgeFormModal.vue'
 
 const showJudgeModal = ref(false)
 const modalDevice = ref(null)
 const modalBasis = ref(null)
+
+const selectedProcesses = ref(['1', '2', '3'])
+const processOptions = ref([])
 
 const openFormModal = (dev) => {
   modalDevice.value = {
@@ -21,20 +24,6 @@ const openFormModal = (dev) => {
     manufactureDate: dev.manufactureDate,
     buildingId: dev.buildId,
     buildingName: dev.buildName
-  }
-  
-  if (dev.judgeStatus === '已判定') {
-    modalBasis.value = {
-      basisId: dev.basisId,
-      ruleId: dev.ruleId,
-      eliminationType: dev.eliminationType,
-      judgmentCriteria: dev.judgmentCriteria,
-      desc: dev.desc,
-      judgmentDate: dev.judgmentDate ? dev.judgmentDate.toString() : null,
-      matchMethod: dev.matchMethod
-    }
-  } else {
-    modalBasis.value = null
   }
   showJudgeModal.value = true
 }
@@ -118,14 +107,21 @@ onMounted(async () => {
 
   // 加载投运年份与厂家字典列表
   try {
-    const [years, brands] = await Promise.all([
+    const [years, brands, processes] = await Promise.all([
       getDistinctFilterYears(),
-      getDistinctFilterBrands()
+      getDistinctFilterBrands(),
+      getJudgmentProcessDict()
     ])
     yearOptions.value = years || []
     brandOptions.value = brands || []
+    
+    // 过滤出 F_JudgmentProcess value 大于 0 的项，并默认全选
+    if (processes && processes.length) {
+      processOptions.value = processes.filter(p => parseInt(p.key) > 0)
+      selectedProcesses.value = processOptions.value.map(p => p.key)
+    }
   } catch (err) {
-    console.error('加载年份和品牌字典失败:', err)
+    console.error('加载字典失败:', err)
   }
 })
 
@@ -254,7 +250,7 @@ const allOld = () => {
 // 开始判定，将当前购物车内的全量设备传回父组件
 function handleStart() {
   const devs = Object.values(selected.value)
-  emit('start', devs)
+  emit('start', devs, selectedProcesses.value)
 }
 
 // 类型与状态工具函数
@@ -403,18 +399,16 @@ const STATUS_ICON = {
           {{ getStatusTagLabel(d) }}
         </div>
         <div class="action-cell">
-          <span class="link-btn" @click.stop="openFormModal(d)">
-            {{ d.judgeStatus === '已判定' ? '查看档案' : '人工判定' }}
-          </span>
+          <span class="link-btn" @click.stop="openFormModal(d)">查看档案</span>
         </div>
       </div>
     </div>
 
     <!-- 统一人工判定与查看淘汰档案弹窗 -->
     <JudgeFormModal
+      v-if="showJudgeModal"
       :show="showJudgeModal"
       :device="modalDevice"
-      :basis="modalBasis"
       @close="showJudgeModal = false"
       @success="handleJudgeSuccess"
     />
@@ -461,6 +455,14 @@ const STATUS_ICON = {
 
         <div class="s">{{ cnt > 0 ? `执行判定后可手动调整并保存结果。` : `当前共有 ${filteredTotal} 台在用设备可选` }}</div>
       </div>
+      
+      <div class="process-selector" v-if="cnt > 0 && processOptions.length > 0" style="display: flex; gap: 15px; margin-right: 10px; align-items: center;">
+        <span style="font-size: 13px; color: var(--text-2);">启用流程:</span>
+        <label v-for="proc in processOptions" :key="proc.key" style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+          <input type="checkbox" :value="proc.key" v-model="selectedProcesses" /> {{ proc.value }}
+        </label>
+      </div>
+
       <button class="btn primary" :disabled="cnt === 0" @click="handleStart">
         <AppIcon name="zap" :size="14" /> 执行实时判定 <template v-if="cnt > 0">· {{ cnt }} 台</template>
       </button>

@@ -10,7 +10,8 @@ import { tokenizeJudgeLog } from '@/utils/logHelpers'
 
 const props = defineProps({
   devices: { type: Array, required: true },
-  rules:   { type: Array, required: true }
+  rules:   { type: Array, required: true },
+  processes: { type: Array, default: () => ['1', '2', '3'] }
 })
 const emit = defineEmits(['done', 'cancel'])
 
@@ -29,13 +30,18 @@ const STEPS = ref([
 
 const curDevice  = computed(() => props.devices[curIdx.value])
 const devType    = computed(() => DEV_TYPE_MAP[curDevice.value?.typeK] || DEV_TYPE_MAP.other)
+
+const isDeviceFinished = ref(false)
+const fetchedData = ref({})
+
 const finalStatus = computed(() =>
-  curStep.value >= STEPS.value.length - 1 && judgeRes.value ? judgeRes.value.status : null)
+  isDeviceFinished.value && judgeRes.value ? judgeRes.value.status : null)
 const finalMeta = computed(() => finalStatus.value ? JUDGE_STATUS_MAP[finalStatus.value] : null)
 
 const progressPct = computed(() => {
   if (!props.devices.length) return 0
-  return Math.round(((curIdx.value + (curStep.value + 1) / STEPS.value.length) / props.devices.length) * 100)
+  if (phase.value === 'done') return 100
+  return Math.round((curIdx.value / props.devices.length) * 100)
 })
 
 // 时间格式化辅助
@@ -47,6 +53,7 @@ function tsNow() {
 async function runDeviceJudge(index) {
   curStep.value = 0 // 第一步：校验设备信息
   logs.value = []
+  isDeviceFinished.value = false
   
   const dev = props.devices[index]
   
@@ -62,69 +69,85 @@ async function runDeviceJudge(index) {
   
   try {
     const equId = dev.equId || dev.id
-    // 真实单台调用接口
-    const res = await judgeEquipments([equId])
-    if (!res || res.length === 0) {
-      throw new Error("判定接口未返回有效数据")
+    
+    // 优先从后台预加载的缓存中直接提取，使接口请求与动画彻底解耦
+    let apiRes = fetchedData.value[equId]
+    if (!apiRes) {
+      const res = await judgeEquipments([equId], props.processes)
+      if (!res || res.length === 0) {
+        throw new Error("判定接口未返回有效数据")
+      }
+      fetchedData.value[equId] = res[0]
+      apiRes = res[0]
     }
     
     logs.value.push({ ts: tsNow(), lv: 'ok', msg: `【OK】规则库云端判定服务响应成功` })
-    const apiRes = res[0]
     
     // 对齐淘汰判定状态
     let alignedStatus = 'normal'
     if (apiRes.judgeStatus === '强制淘汰') alignedStatus = 'phaseout-mandatory'
     else if (apiRes.judgeStatus === '限期淘汰') alignedStatus = 'phaseout-deadline'
     
-    // 解析后端返回的 flowSteps，作为后续步骤动态追加
-    const backendSteps = (apiRes.flowSteps || []).map(fs => ({
-      k: fs.key,
-      n: fs.name,
-      d: fs.name,
-      status: fs.status, // "success" / "warning"
-      logs: fs.logs || []
-    }))
+    // 解析后端返回的 flowSteps (Dictionary)，扁平化作为后续步骤追加
+    const backendSteps = []
+    if (apiRes.flowSteps) {
+      Object.keys(apiRes.flowSteps).forEach(procName => {
+        const pSteps = apiRes.flowSteps[procName] || []
+        pSteps.forEach(fs => {
+          backendSteps.push({
+            k: fs.key || procName,
+            n: fs.name,
+            d: fs.name,
+            status: fs.status,
+            logs: fs.logs || []
+          })
+        })
+      })
+    }
     
-    // 更新步骤表
+    // 初始化前两步
     STEPS.value = [
       { k: 'verify', n: '校验设备信息', d: '校验设备录入数据的完整性...', status: 'success' },
-      { k: 'load',   n: '加载规则库',   d: '请求淘汰判定服务...', status: 'success' },
-      ...backendSteps
+      { k: 'load',   n: '加载规则库',   d: '请求淘汰判定服务...', status: 'success' }
     ]
     
-    // 转换 Hits
-    const alignedHits = []
-    if (apiRes.hits && apiRes.hits.length > 0) {
-      apiRes.hits.forEach(ah => {
-        const localRule = props.rules.find(r => r.ruleId === ah.ruleId) || {
-          ruleId: ah.ruleId,
-          product: ah.ruleName,
-          eliminationType: ah.eliminationType === '强制淘汰' ? '强制' : '限期',
-          nationalStandard: ah.desc
-        }
-        
-        const alignedChecks = (ah.checks || []).map(c => {
-          let stepName = c.step
-          if (c.step === '型号系列' || c.step === '型号匹配') stepName = '型号系列'
-          if (c.step === '规格区间' || c.step === '规格匹配') stepName = '规格区间'
-          if (c.step === '投运年份' || c.step === '年份约束') stepName = '投运年份'
-          
-          return {
-            step: stepName,
-            expect: c.expect,
-            actual: c.actual,
-            ok: c.ok,
-            conditions: stepName === '规格区间' ? [
-              { key: '参数', min: 0, max: 0, actual: c.actual, ok: c.ok, desc: c.expect }
-            ] : []
+    // 转换 Hits: 保持后端字典结构，并添加前端依赖项
+    const alignedHits = {}
+    if (apiRes.hits) {
+      Object.keys(apiRes.hits).forEach(procName => {
+        alignedHits[procName] = []
+        const pArray = apiRes.hits[procName] || []
+        pArray.forEach(ah => {
+          const localRule = props.rules.find(r => r.ruleId === ah.ruleId) || {
+            ruleId: ah.ruleId,
+            product: ah.ruleName,
+            eliminationType: ah.eliminationType === '强制淘汰' ? '强制' : '限期',
+            nationalStandard: ah.desc
           }
-        })
-        
-        alignedHits.push({
-          rule: localRule,
-          modelHit: dev.model,
-          apiHit: ah,
-          checks: alignedChecks
+          
+          const alignedChecks = (ah.checks || []).map(c => {
+            let stepName = c.step
+            if (c.step === '型号系列' || c.step === '型号匹配') stepName = '型号系列'
+            if (c.step === '规格区间' || c.step === '规格匹配') stepName = '规格区间'
+            if (c.step === '投运年份' || c.step === '年份约束') stepName = '投运年份'
+            
+            return {
+              step: stepName,
+              expect: c.expect,
+              actual: c.actual,
+              ok: c.ok,
+              conditions: stepName === '规格区间' ? [
+                { key: '参数', min: 0, max: 0, actual: c.actual, ok: c.ok, desc: c.expect }
+              ] : []
+            }
+          })
+          
+          alignedHits[procName].push({
+            rule: localRule,
+            modelHit: dev.model,
+            apiHit: ah,
+            checks: alignedChecks
+          })
         })
       })
     }
@@ -142,12 +165,15 @@ async function runDeviceJudge(index) {
       apiRaw: apiRes
     }
     
-    // 依次且有延迟地向前推演后续步骤
-    for (let i = 2; i < STEPS.value.length; i++) {
-      await new Promise(r => setTimeout(r, 450)) // 步骤间延迟
-      curStep.value = i
+    // 依次将后端各个节点追加到流水线，并逐个点亮和输出日志
+    for (let i = 0; i < backendSteps.length; i++) {
+      const stepItem = backendSteps[i]
+      STEPS.value.push(stepItem)
       
-      const stepItem = STEPS.value[i]
+      // 更新当前活跃步骤指向刚追加的这一步
+      curStep.value = STEPS.value.length - 1
+      await new Promise(r => setTimeout(r, 450)) // 步骤激活延迟
+      
       // 将本步的日志打字机般逐行输出
       for (const line of stepItem.logs) {
         await new Promise(r => setTimeout(r, 100))
@@ -156,8 +182,16 @@ async function runDeviceJudge(index) {
           lv: line.includes('【OK】') ? 'ok' : (line.includes('【WARN】') ? 'warn' : 'info'),
           msg: line
         })
+        setTimeout(() => {
+          const la = document.querySelector('.log-area')
+          if (la) la.scrollTop = la.scrollHeight
+          const sl = document.querySelector('.step-list')
+          if (sl) sl.scrollTop = sl.scrollHeight
+        }, 10)
       }
     }
+    
+    isDeviceFinished.value = true
     
     // 结束本台判定
     await new Promise(r => setTimeout(r, 500))
@@ -187,6 +221,19 @@ async function runDeviceJudge(index) {
 
 onMounted(() => {
   if (props.devices.length > 0) {
+    // 后台并行预请求所有设备的判定数据，不阻碍前台校验和动画的立即开始
+    props.devices.forEach(async (dev) => {
+      try {
+        const equId = dev.equId || dev.id
+        const res = await judgeEquipments([equId], props.processes)
+        if (res && res.length > 0) {
+          fetchedData.value[equId] = res[0]
+        }
+      } catch (e) {
+        console.error(`后台静默预拉取接口出错: ${dev.equId}`, e)
+      }
+    })
+
     runDeviceJudge(0)
   }
 })
@@ -292,13 +339,17 @@ onMounted(() => {
             :class="['step-row', curStep === i && 'active', curStep > i && 'done', curStep > i && s.status]"
           >
             <div class="dot">
-              <AppIcon v-if="curStep > i && s.status === 'warning'" name="warn" :size="10" stroke="var(--warn-color, #e6a23c)" />
+              <AppIcon v-if="curStep === i" name="settings" :size="10" class="spin" stroke="var(--brand)" />
+              <AppIcon v-else-if="curStep > i && s.status === 'warning'" name="warn" :size="10" stroke="var(--warn-color, #e6a23c)" />
               <AppIcon v-else-if="curStep > i && s.status === 'fail'" name="ban" :size="10" stroke="#f56c6c" />
               <AppIcon v-else-if="curStep > i" name="check" :size="10" />
               <template v-else>{{ String(i + 1).padStart(2, '0') }}</template>
             </div>
             <span>{{ s.n }}</span>
-            <span v-if="curStep > i && s.status === 'warning'" class="step-stat" style="color:#e6a23c">⚠️ 警告</span>
+            <span v-if="curStep === i" class="step-stat" style="color:var(--brand)">
+              <AppIcon name="settings" :size="12" class="spin" />
+            </span>
+            <span v-else-if="curStep > i && s.status === 'warning'" class="step-stat" style="color:#e6a23c">⚠️ 警告</span>
             <span v-else-if="curStep > i && s.status === 'fail'" class="step-stat" style="color:#f56c6c">❌ 错误</span>
             <span v-else-if="curStep > i" class="step-stat">✓</span>
           </div>
@@ -328,10 +379,17 @@ onMounted(() => {
           <div>
             <div class="h">判定结果：{{ finalMeta.label }}</div>
             <div class="d">
-              {{ judgeRes.hits.length > 0
-                ? `命中 ${judgeRes.hits.length} 条规则 · ${finalMeta.desc}`
+              {{ Object.values(judgeRes.hits || {}).flat().length > 0
+                ? `命中 ${Object.values(judgeRes.hits || {}).flat().length} 条规则 · ${finalMeta.desc}`
                 : finalMeta.desc }}
             </div>
+          </div>
+        </div>
+        <div v-else class="final-banner pending" style="background: rgba(43,90,237,0.06); border: 1px solid rgba(43,90,237,0.18);">
+          <div class="iconbox" style="background: var(--brand); color: white;"><AppIcon name="zap" :size="20" /></div>
+          <div>
+            <div class="h" style="color: var(--text-1); font-weight: 600;">淘汰判定引擎分析中...</div>
+            <div class="d" style="color: var(--text-2);">正在核对匹配现行淘汰目录标准与大模型能效推理</div>
           </div>
         </div>
       </div>
@@ -437,13 +495,17 @@ onMounted(() => {
 .runner-mid {
   background: linear-gradient(180deg, #0f1d3d, #1a2a55);
   border: 1px solid #1a2950; border-radius: 12px;
-  padding: 20px; min-height: 540px; color: #eaf2ff;
+  padding: 20px; height: 760px; color: #eaf2ff;
+  display: flex; flex-direction: column;
 }
-.runner-mid .head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 14px; }
+.runner-mid .head { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px dashed rgba(77,201,255,0.2); margin-bottom: 14px; flex-shrink: 0; }
 .runner-mid .head h4 { margin: 0; font-size: 14px; color: #eaf2ff; }
 .runner-mid .head .sub { font-size: 11px; color: #8da3c8; font-family: "JetBrains Mono", monospace; }
 
-.step-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.step-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; overflow-y: auto; padding-right: 6px; }
+.step-list::-webkit-scrollbar, .log-area::-webkit-scrollbar { width: 6px; }
+.step-list::-webkit-scrollbar-thumb, .log-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+.step-list::-webkit-scrollbar-track, .log-area::-webkit-scrollbar-track { background: transparent; }
 .step-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; font-size: 12.5px; color: #6a7da3; transition: all 0.2s; }
 .step-row .dot { width: 18px; height: 18px; border-radius: 50%; background: rgba(77,201,255,0.10); border: 1px solid rgba(77,201,255,0.2); display: grid; place-items: center; font-family: "JetBrains Mono", monospace; font-size: 9px; color: #6a7da3; flex-shrink: 0; }
 .step-row.active { background: rgba(77,201,255,0.10); color: #eaf2ff; }
@@ -461,7 +523,7 @@ onMounted(() => {
   background: #0a142e; border: 1px solid #1a2950; border-radius: 8px;
   padding: 12px; font-family: "JetBrains Mono", monospace;
   font-size: 11px; color: #c5d3ed; line-height: 1.8;
-  max-height: 280px; overflow-y: auto;
+  flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column;
 }
 .log-area .ll { display: block; animation: log-in 0.25s ease forwards; }
@@ -472,7 +534,7 @@ onMounted(() => {
 .log-area .lv-err  { color: #ff6b8a; }
 .log-area .ent     { color: #b3a4ff; }
 
-.final-banner { margin-top: 14px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: center; gap: 14px; animation: float-in 0.4s ease both; }
+.final-banner { flex-shrink: 0; margin-top: 14px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: center; gap: 14px; animation: float-in 0.4s ease both; }
 .final-banner.normal  { background: linear-gradient(90deg, rgba(43,217,168,0.18), rgba(43,217,168,0.05)); border: 1px solid rgba(43,217,168,0.45); }
 .final-banner.low_eff { background: linear-gradient(90deg, rgba(234,140,46,0.20), rgba(234,140,46,0.05)); border: 1px solid rgba(234,140,46,0.45); }
 .final-banner.phaseout { background: linear-gradient(90deg, rgba(224,57,79,0.22), rgba(224,57,79,0.06)); border: 1px solid rgba(224,57,79,0.50); }
@@ -496,4 +558,13 @@ onMounted(() => {
 .queue-item .qname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); }
 .queue-item.curr .qname { color: var(--text-0); font-weight: 500; }
 .queue-item .qstat { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-family: "JetBrains Mono", monospace; flex-shrink: 0; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 1.5s linear infinite;
+  display: inline-block;
+}
 </style>

@@ -82,37 +82,50 @@ export async function getDistinctFilterBrands(buildId) {
   return res.data.data;
 }
 
+export async function getJudgmentProcessDict() {
+  if (USE_MOCK) {
+    return [
+      { key: "0", value: "人工判定" },
+      { key: "1", value: "规则判断" },
+      { key: "2", value: "AI判定" },
+      { key: "3", value: "能效判定" }
+    ];
+  }
+  const res = await axios.get(`${API_PREFIX}/getJudgmentProcessDict`);
+  return res.data.data;
+}
+
 /**
  * 批量执行淘汰设备判定
  * @param {Array<string>} equIds 设备ID列表
  */
-export async function judgeEquipments(equIds) {
+export async function judgeEquipments(equIds, judgmentProcesses = ['1', '2', '3']) {
   if (USE_MOCK) {
-    const results = equIds.map(id => {
-      const d = mockDevices.find(x => x.equId === id) || {
+    const results = equIds.map((id, index) => {
+      const d = mockDevices.find(md => md.equId === id) || {
         equId: id,
-        equipmentName: '测试设备',
-        model: 'Y-100',
+        equipmentName: `模拟设备${index}`,
+        model: 'MOCK-XX',
         year: '2010',
-        power: '5.5 kW',
+        power: '55',
         manufactureDate: '2010-01-01',
-        typeName: '通用设备'
+        typeName: '三相异步电动机'
       };
 
       const yearNum = parseInt(d.year);
       const isLowEff = yearNum <= 2012;
       const status = isLowEff ? (yearNum <= 2008 ? '强制淘汰' : '限期淘汰') : '正常';
 
-      const hits = [];
+      const hits = {};
       if (isLowEff) {
-        hits.push({
+        hits['规则判定'] = [{
           ruleId: 'MOCK-RULE-01',
           ruleName: d.typeName || '三级能效淘汰限制',
           eliminationType: status,
           matchMethod: '型号前缀+投运年份约束判定',
           judgmentCriteria: `【型号匹配】：命中 ${d.model} 系列，【年份匹配】：投运年份 ${d.year} 小于等于 2012 年`,
           desc: '依据标准：GB18613-2012 能效限定标准。'
-        });
+        }];
       }
 
       return {
@@ -123,14 +136,15 @@ export async function judgeEquipments(equIds) {
         power: d.power,
         manufactureDate: d.manufactureDate,
         judgeStatus: status,
-        hits
+        hits,
+        flowSteps: { '规则判定': [] }
       };
     });
 
     return results;
   }
 
-  const res = await axios.post(`${API_PREFIX}/judgeEquipments`, { equIds });
+  const res = await axios.post(`${API_PREFIX}/judgeEquipments`, { equIds, judgmentProcesses });
   return res.data.data;
 }
 
@@ -162,7 +176,8 @@ export async function saveJudgeResults(items) {
     EliminationType: d.eliminationType,
     MatchMethod: d.matchMethod,
     JudgmentCriteria: d.judgmentCriteria,
-    Desc: d.desc
+    Desc: d.desc,
+    JudgmentProcess: d.judgmentProcess
   }));
 
   const res = await axios.post(`${API_PREFIX}/saveJudgeResults`, { items: backendItems });
@@ -182,5 +197,45 @@ export async function getEliminationTypesFromDb() {
     return ['强制淘汰', '限期淘汰'];
   }
   const res = await axios.get(`${API_PREFIX}/getEliminationTypesFromDb`);
+  return res.data.data;
+}
+
+export async function getJudgeBasisList(equId) {
+  if (USE_MOCK) {
+    return [
+      {
+        basisId: 101,
+        equId: equId,
+        buildId: 'BUILD-0001',
+        judgmentProcess: '规则判定',
+        eliminationType: '强制淘汰',
+        ruleId: 'B1-3-1',
+        judgmentCriteria: '型号系列匹配：变压器，规格匹配，判定为强制淘汰',
+        desc: '电耗高。',
+        judgmentDate: '2026-06-05 10:00:00',
+        matchMethod: '规则自动判定'
+      }
+    ];
+  }
+  const res = await axios.get(`${API_PREFIX}/getJudgeBasisList`, { params: { equId } });
+  return res.data.data;
+}
+
+export async function saveSingleBasis(basisItem) {
+  if (USE_MOCK) {
+    return true;
+  }
+  const payload = {
+    BasisId: basisItem.basisId || 0,
+    EquId: basisItem.equId,
+    BuildId: basisItem.buildId || 'BUILD-0001',
+    RuleId: basisItem.ruleId || null,
+    EliminationType: basisItem.eliminationType,
+    MatchMethod: basisItem.matchMethod || '人工直接判定',
+    JudgmentCriteria: basisItem.judgmentCriteria,
+    Desc: basisItem.desc,
+    JudgmentProcess: basisItem.judgmentProcess
+  };
+  const res = await axios.post(`${API_PREFIX}/saveSingleBasis`, payload);
   return res.data.data;
 }

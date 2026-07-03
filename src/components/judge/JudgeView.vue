@@ -17,11 +17,15 @@ const rules = RULES_LIB_INIT.filter(r => r.enabled !== false)
 const phase          = ref('select')
 const entryMode      = ref('from-existing')
 const devicesToJudge = ref([])
+const selectedProcessesToRun = ref(['1', '2', '3'])
 const results        = ref([])
 
 // 开始判定：获取待判定的设备列表，并切换到判定运行状态
-function startJudge(devs) {
+function startJudge(devs, processes) {
   devicesToJudge.value = devs
+  if (processes) {
+    selectedProcessesToRun.value = processes
+  }
   phase.value = 'running'
 }
 
@@ -67,6 +71,7 @@ function onJudgeDone(rs) {
     v-else-if="phase === 'running'"
     :devices="devicesToJudge"
     :rules="rules"
+    :processes="selectedProcessesToRun"
     @done="onJudgeDone"
     @cancel="phase = entryMode"
   />

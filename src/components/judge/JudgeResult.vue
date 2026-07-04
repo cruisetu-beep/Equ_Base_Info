@@ -475,7 +475,6 @@ function getEnergyLevelDesc(r) {
       <div class="rs-left">
         <div class="summary-left">
           <h2><AppIcon name="check" :size="28" stroke="#4dc9ff" /> 分析完成</h2>
-          <div class="sub">基于规则库 · 共 {{ enabledCount }} 条规则</div>
         </div>
         <div class="ss-item big-card">
           <div class="l">本次设备数量</div>
@@ -483,7 +482,7 @@ function getEnergyLevelDesc(r) {
         </div>
         
         <div class="ss-item big-card">
-          <div class="l">发现异常设备</div>
+          <div class="l">发现可淘汰设备</div>
           <div class="v" style="color: #ff8da0;">{{ summary.total - summary.normal }}<span class="unit" style="color: rgba(255,141,160,0.8);">台</span></div>
         </div>
         

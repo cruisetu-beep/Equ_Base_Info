@@ -189,8 +189,8 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Step 1: 数据模型下拉 -->
+        <div class="panel-step-label"><span class="step-num">1</span>数据模型</div>
         <div class="model-select-wrap">
-          <div class="panel-step-label"><span class="step-num">1</span>数据模型</div>
           <div class="model-dd" @click="modelDropdown = !modelDropdown" @blur.capture="setTimeout(()=>modelDropdown=false,150)" tabindex="0">
             <AppIcon name="database" :size="14" stroke="var(--brand)" />
             <span :class="selectedModelId ? 'sel-text' : 'sel-placeholder'">
@@ -276,6 +276,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .step-data { display: grid; grid-template-columns: 300px 1fr; gap: 14px; min-height: 360px; }
 
+.building-hint {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; font-size: 12px; font-weight: 500; color: var(--text-1);
+  background: #f6f9ff; border-bottom: 1px solid var(--line); flex-shrink: 0;
+}
+.building-hint.warn {
+  color: var(--warn, #f59e0b); background: #fffbeb;
+}
+
 /* 节点树面板 */
 .tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 0; }
 .panel-step-label {
@@ -283,7 +292,7 @@ onBeforeUnmount(() => {
   padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--text-0);
   border-bottom: 1px solid var(--line); background: #f6f9ff; flex-shrink: 0;
 }
-.model-select-wrap { padding: 10px 10px 0; flex-shrink: 0; }
+.model-select-wrap { padding: 10px; flex-shrink: 0; }
 .model-dd {
   position: relative; display: flex; align-items: center; gap: 9px;
   padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px;
@@ -356,6 +365,6 @@ onBeforeUnmount(() => {
 .ec-label { font-size: 10px; color: var(--text-3); margin-top: 3px; }
 .ec-div { width: 1px; height: 28px; background: var(--line); flex-shrink: 0; }
 .chart-title { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
-.ec-chart { flex: 1; min-height: 200px; width: 100%; }
+.ec-chart { height: 260px; width: 100%; }
 .data-source { margin-top: 8px; font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace; text-align: right; }
 </style>

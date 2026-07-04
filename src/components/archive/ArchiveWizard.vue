@@ -36,7 +36,7 @@ function handleNextStep() {
   }
 }
 
-async function submitArchive(nextAction) {
+async function submitArchive() {
   submitting.value = true
   try {
     const paramsList = []
@@ -102,12 +102,7 @@ async function submitArchive(nextAction) {
       }
     }
 
-    if (nextAction === 'exit') {
-      emit('exit')
-    } else {
-      pkg.value = { docs: {} }
-      stepIdx.value = 0
-    }
+    emit('exit')
   } catch (err) {
     console.error('提交新设备异常:', err)
     alert('保存新设备失败，请稍后重试。')
@@ -181,10 +176,7 @@ async function submitArchive(nextAction) {
               </button>
             </template>
             <template v-else>
-              <button class="btn ghost" :disabled="submitting" @click="submitArchive('next')">
-                {{ submitting ? '保存中...' : '继续录入下一台' }}
-              </button>
-              <button class="btn primary" :disabled="submitting" @click="submitArchive('exit')">
+              <button class="btn primary" :disabled="submitting" @click="submitArchive">
                 <template v-if="submitting">
                   <div class="ocr-spinner" style="width:12px; height:12px; border-width:1.5px; border-top-color:#fff; margin-right:6px"></div>
                   正在保存...
@@ -213,7 +205,7 @@ async function submitArchive(nextAction) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 24px 24px 0;
+  padding: 16px 24px 0;
 }
 .wizard-content::-webkit-scrollbar { width: 4px; }
 .wizard-content::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }

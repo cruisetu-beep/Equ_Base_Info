@@ -401,7 +401,7 @@ const progress = computed(() => {
 </template>
 
 <style scoped>
-.form-section { padding: 20px 28px; }
+.form-section { padding: 12px 28px 16px; }
 
 .section-content {
   border: 1px solid var(--line); border-radius: 10px;

@@ -173,27 +173,34 @@ const initForm = async () => {
     saving.value = false
     
     // 1. 获取动态淘汰类型列表
-    try {
-      const types = await getEliminationTypesFromDb()
-      if (types && types.length > 0) {
-        const list = types.map(t => (t === '正常') ? t : (t.endsWith('淘汰') ? t : t + '淘汰'))
-        if (!list.includes('正常')) list.push('正常')
-        eliminationTypes.value = list
+    const p1 = (async () => {
+      try {
+        const types = await getEliminationTypesFromDb()
+        if (types && types.length > 0) {
+          const list = types.map(t => (t === '正常') ? t : (t.endsWith('淘汰') ? t : t + '淘汰'))
+          if (!list.includes('正常')) list.push('正常')
+          eliminationTypes.value = list
+        }
+      } catch (err) {
+        console.error('获取淘汰类型列表失败:', err)
       }
-    } catch (err) {
-      console.error('获取淘汰类型列表失败:', err)
-    }
+    })()
 
     // 2. 获取批次列表
-    try {
-      const batchList = await getObsoleteBatches()
-      batches.value = batchList || []
-    } catch (err) {
-      console.error('获取批次列表失败:', err)
-    }
+    const p2 = (async () => {
+      try {
+        const batchList = await getObsoleteBatches()
+        batches.value = batchList || []
+      } catch (err) {
+        console.error('获取批次列表失败:', err)
+      }
+    })()
     
     // 3. 拉取并初始化该设备的判定记录列表
-    await loadBasisList()
+    const p3 = loadBasisList()
+
+    // 并发执行所有无依赖的请求，大幅缩短打开弹窗时的等待时间
+    await Promise.all([p1, p2, p3])
   } finally {
     isInitializing = false
   }
@@ -255,6 +262,22 @@ const handleAddProcess = () => {
   
   // 切换过去并开启编辑
   selectTab(name)
+}
+
+// 处理取消编辑
+const handleCancelEdit = () => {
+  if (activeForm.value.basisId > 0) {
+    activeForm.value.isEdit = false
+  } else {
+    // 对于新增的判定流程，如果当前设备没有任何已保存的记录，则取消直接关闭弹窗
+    const hasSaved = basisList.value.some(x => x.basisId > 0)
+    if (!hasSaved) {
+      emit('close')
+    } else {
+      // 否则丢弃未保存的临时页签，重新加载已有记录
+      loadBasisList()
+    }
+  }
 }
 
 // 单条判定结果独立保存
@@ -336,11 +359,13 @@ const handleSave = async () => {
               :class="{ active: activeTab === proc.judgmentProcess }"
               @click="selectTab(proc.judgmentProcess)"
               style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid var(--line); transition:all 0.2s;"
-              :style="activeTab === proc.judgmentProcess
-                ? 'background: var(--brand-08); color: var(--brand); border-color: var(--brand);'
-                : 'background: var(--bg-hover); color: var(--text-2);'"
+              :style="(!proc.eliminationType && !proc.EliminationType) || ['未判定', '待判定'].includes(proc.eliminationType || proc.EliminationType)
+                ? (activeTab === proc.judgmentProcess ? 'background: var(--brand-08); color: var(--brand); border-color: var(--brand);' : 'background: var(--bg-hover); color: var(--text-2);')
+                : (proc.eliminationType || proc.EliminationType).includes('正常')
+                  ? (activeTab === proc.judgmentProcess ? 'background: rgba(43,217,168,0.15); color: #2bd9a8; border-color: #2bd9a8;' : 'background: rgba(43,217,168,0.08); color: #2bd9a8; border-color: rgba(43,217,168,0.30);')
+                  : (activeTab === proc.judgmentProcess ? 'background: rgba(224,57,79,0.15); color: #ff8da0; border-color: #ff8da0;' : 'background: rgba(224,57,79,0.10); color: #ff8da0; border-color: rgba(224,57,79,0.30);')"
             >
-              {{ proc.judgmentProcess }} ({{ (proc.eliminationType || proc.EliminationType) !== '正常' ? '淘汰' : '正常' }})
+              {{ proc.judgmentProcess }} ({{ (!proc.eliminationType && !proc.EliminationType) || ['未判定', '待判定'].includes(proc.eliminationType || proc.EliminationType) ? '未判定' : (proc.eliminationType || proc.EliminationType).includes('正常') ? '正常' : '淘汰' }})
             </button>
 
             <!-- 动态增加判定结果入口 (点击直接一键添加) -->
@@ -358,15 +383,15 @@ const handleSave = async () => {
           <!-- 设备与系统底层关联键（无显式分组标题，直观且不可编辑） -->
           <div class="readonly-badge-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
             <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
-              <span class="k" style="font-size:11px; color:var(--text-3);">系统主键 (F_BasisID)</span>
+              <span class="k" style="font-size:11px; color:var(--text-3);">系统主键</span>
               <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ activeForm.basisId > 0 ? activeForm.basisId : '（自动生成）' }}</span>
             </div>
             <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
-              <span class="k" style="font-size:11px; color:var(--text-3);">设备编码 (F_EquID)</span>
+              <span class="k" style="font-size:11px; color:var(--text-3);">设备编码</span>
               <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ props.device.id || props.device.equId }}</span>
             </div>
             <div class="rb-item" style="padding:6px 10px; background:var(--bg-hover); border-radius:6px; border:1px solid var(--line); display:flex; flex-direction:column;">
-              <span class="k" style="font-size:11px; color:var(--text-3);">建筑编码 (F_BuildID)</span>
+              <span class="k" style="font-size:11px; color:var(--text-3);">建筑编码</span>
               <span class="mono" style="font-size:12px; font-weight:600; color:var(--text-2); margin-top:2px;">{{ props.device.buildingId || props.device.buildId || 'BUILD-0001' }}</span>
             </div>
           </div>
@@ -375,7 +400,7 @@ const handleSave = async () => {
           <div class="form-grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:4px;">
             <!-- 判定流程大类 (支持手动修改或输入分类) -->
             <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
-              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定流程大类 (F_JudgmentProcess) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定流程大类<span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
               <input 
                 v-model="activeForm.judgmentProcess" 
                 :disabled="!activeForm.isEdit" 
@@ -387,7 +412,7 @@ const handleSave = async () => {
             </div>
             <!-- 判定状态 -->
             <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
-              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定最终结论 (F_EliminationType) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定最终结论<span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
               <select v-model="activeForm.eliminationType" :disabled="!activeForm.isEdit" class="select" style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);">
                 <option v-for="t in eliminationTypes" :key="t" :value="t">{{ t }}</option>
               </select>
@@ -404,7 +429,7 @@ const handleSave = async () => {
               </select>
             </div>
             <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
-              <label style="font-size:12px; font-weight:500; color:var(--text-1);">2. 关联目录规则 (F_RuleID)</label>
+              <label style="font-size:12px; font-weight:500; color:var(--text-1);">2. 关联目录规则</label>
               <select v-model="activeForm.selectedRuleId" :disabled="!activeForm.isEdit || !activeForm.selectedBatch" class="select" @change="handleRuleChange" style="height:36px; border-radius:6px; border:1px solid var(--line); padding:0 10px; font-size:13px; outline:none; background:var(--bg-card);">
                 <option value="">-- 请选择匹配规则 --</option>
                 <option v-for="r in activeForm.rulesOfBatch" :key="r.ruleId" :value="r.ruleId">
@@ -415,7 +440,7 @@ const handleSave = async () => {
           </div>
 
           <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定依据文字描述 (F_JudgmentCriteria) <span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
+            <label style="font-size:12px; font-weight:500; color:var(--text-1);">判定依据文字描述<span class="req" v-if="activeForm.isEdit" style="color:var(--eol-red);">*</span></label>
             <textarea 
               v-model="activeForm.judgmentCriteria" 
               :disabled="!activeForm.isEdit" 
@@ -427,7 +452,7 @@ const handleSave = async () => {
           </div>
 
           <div class="form-row" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:12px; font-weight:500; color:var(--text-1);">备注补充说明 (F_Desc)</label>
+            <label style="font-size:12px; font-weight:500; color:var(--text-1);">备注补充说明</label>
             <textarea 
               v-model="activeForm.desc" 
               :disabled="!activeForm.isEdit" 
@@ -462,7 +487,7 @@ const handleSave = async () => {
           </button>
         </template>
         <template v-else>
-          <button class="btn ghost" :disabled="saving" @click="activeForm.basisId > 0 ? (activeForm.isEdit = false) : loadBasisList()">
+          <button class="btn ghost" :disabled="saving" @click="handleCancelEdit">
             取消
           </button>
           <button class="btn primary" :disabled="saving" @click="handleSave">

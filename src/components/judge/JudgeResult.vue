@@ -670,7 +670,7 @@ function getEnergyLevelDesc(r) {
                 </div>
                 <!-- 关联目录规则 -->
                 <div class="edit-field">
-                  <span class="field-label">关联目录规则 (F_RuleID)</span>
+                  <span class="field-label">关联目录规则</span>
                   <select v-model="editData[idx][getTab(idx, r)].selectedRuleId" :disabled="!editData[idx][getTab(idx, r)].selectedBatch" class="edit-select" @change="handleRuleChange(idx, getTab(idx, r))">
                     <option value="">-- 未命中匹配规则 --</option>
                     <option v-for="ruleItem in editData[idx][getTab(idx, r)].rulesOfBatch" :key="ruleItem.ruleId" :value="ruleItem.ruleId">
@@ -681,18 +681,18 @@ function getEnergyLevelDesc(r) {
               </div>
               <div class="edit-field-row" style="display:grid;grid-template-columns:180px 1fr;gap:14px;margin-top:4px">
                 <div class="edit-field">
-                  <span class="field-label">判定结论 F_EliminationType</span>
+                  <span class="field-label">判定结论</span>
                   <select v-model="editData[idx][getTab(idx, r)].eliminationType" class="edit-select">
                     <option v-for="t in eliminationTypes" :key="t" :value="t">{{ t }}</option>
                   </select>
                 </div>
               </div>
               <div class="edit-field">
-                <span class="field-label">判定依据文字描述 (T_ST_EquipmentEliminationBasis.F_JudgmentCriteria)</span>
+                <span class="field-label">判定依据文字描述</span>
                 <textarea v-model="editData[idx][getTab(idx, r)].judgmentCriteria" rows="2" class="edit-textarea" placeholder="输入或调整最终写档的判定依据..."></textarea>
               </div>
               <div class="edit-field">
-                <span class="field-label">备注补充说明 (T_ST_EquipmentEliminationBasis.F_Desc)</span>
+                <span class="field-label">备注补充说明</span>
                 <textarea v-model="editData[idx][getTab(idx, r)].desc" rows="2" class="edit-textarea" placeholder="填写现场勘察备注或改造实施意见..."></textarea>
               </div>
             </div>

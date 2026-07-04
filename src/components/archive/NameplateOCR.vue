@@ -14,6 +14,8 @@ const fileInput  = ref(null)
 
 // 缓存接口真实返回的数据包
 const ocrPackage = ref(null)
+const isImporting = ref(false)
+const rawDataList = ref([])
 
 function triggerUpload() { fileInput.value.click() }
 
@@ -40,7 +42,8 @@ async function handleFile(file) {
 
     console.log('OCR 识别原始返回:', response.data)
 
-    let resData = response.data?.data || response.data
+    const rawRes = response.data || {}
+    let resData = rawRes.data
     // 如果返回的 data 字段为 JSON 字符串，在此自动解析为对象
     if (typeof resData === 'string') {
       try {
@@ -50,14 +53,81 @@ async function handleFile(file) {
       }
     }
 
-    if (resData && typeof resData === 'object') {
-      // 匹配核心属性
-      const type2 = resData['产品名称'] || resData['设备名称'] || resData.type2 || resData.typeName || ''
-      const type1 = type2 ? parseTypeK(type2) : 'other'
-      const model = resData['产品型号'] || resData['型号'] || resData.model || resData.modelName || ''
-      const manufacturer = resData['制造商'] || resData['生产厂'] || resData['生产商'] || resData['制造商名称'] || resData.manufacturer || ''
+    if (!resData || typeof resData !== 'object') {
+      resData = rawRes
+    }
 
-      const dateStr = resData['制造日期'] || resData['出厂日期'] || resData['出厂年份'] || resData.year || ''
+    // 自动深挖最底层的实际参数字典对象 ocrData，支持 data 内部包裹的二次序列化 JSON 字符串
+    let ocrData = resData
+    if (resData && typeof resData === 'object' && resData.data !== undefined) {
+      ocrData = resData.data
+    }
+    if (typeof ocrData === 'string') {
+      try {
+        ocrData = JSON.parse(ocrData)
+      } catch (e) {
+        console.error('反序列化 ocrData 失败:', e)
+      }
+    }
+    if (!ocrData || typeof ocrData !== 'object') {
+      ocrData = resData
+    }
+
+    // 1. 解析 dataList 并存入缓存以备后用
+    let dataList = rawRes.dataList || resData.dataList || ocrData.dataList || []
+    if (typeof dataList === 'string') {
+      try {
+        dataList = JSON.parse(dataList)
+      } catch (e) {
+        console.error('反序列化 dataList 字符串失败:', e)
+        dataList = []
+      }
+    }
+    if (!Array.isArray(dataList)) {
+      dataList = []
+    }
+
+    rawDataList.value = dataList.map(item => {
+      if (!item) return null
+      return {
+        id: item.id || null,
+        k: item.name || item.k || '',
+        v: String(item.value || item.v || '')
+      }
+    }).filter(x => x && x.k)
+
+    if (ocrData && typeof ocrData === 'object') {
+      // 2. 识别结果面板渲染数据 result 仅使用 ocrData 里面的字段，排除对象、数组等
+      const viewList = []
+      Object.entries(ocrData).forEach(([k, v]) => {
+        if (k && v !== null && v !== undefined && typeof v !== 'object' && k !== 'dataList') {
+          let showKey = k
+          if (k === 'model') showKey = '型号'
+          else if (k === 'voltage' || k === 'voltageV') showKey = '电源电压(V)'
+          else if (k === 'power' || k === 'powerKw') showKey = '额定功率(kW)'
+          else if (k === 'code' || k === 'serialNumber') showKey = '出厂编号'
+          else if (k === 'date' || k === 'manufactureDate') showKey = '出厂日期'
+          else if (k === 'factory' || k === 'manufacturer') showKey = '生产厂家'
+          else if (k === 'brand') showKey = '品牌'
+          viewList.push({ id: null, name: showKey, value: String(v) })
+        }
+      })
+      result.value = viewList
+
+      // 提取核心属性，用于回填基础信息字段（基于 ocrData）
+      const findValue = (keys) => {
+        for (const k of keys) {
+          if (ocrData && ocrData[k]) return ocrData[k]
+        }
+        return ''
+      }
+
+      const type2 = findValue(['产品名称', '设备名称', 'type2', 'typeName'])
+      const type1 = type2 ? parseTypeK(type2) : 'other'
+      const model = findValue(['产品型号', '型号', 'model', 'modelName'])
+      const manufacturer = findValue(['制造商', '生产厂', '生产商', '制造商名称', 'manufacturer', 'factory'])
+      const dateStr = findValue(['制造日期', '出厂日期', '出厂年份', 'date', 'manufactureDate', 'year'])
+
       let year = 2010
       if (dateStr) {
         const match = String(dateStr).match(/\b(19\d{2}|20\d{2})\b/)
@@ -66,20 +136,7 @@ async function handleFile(file) {
         }
       }
 
-      // 提取全部的技术参数（不做任何剔除，确保预览与导入完全对齐）
-      const paramsList = []
-      Object.entries(resData).forEach(([k, v]) => {
-        if (k && v && typeof v === 'string') {
-          paramsList.push({ name: k, value: v })
-        }
-      })
-
-      // 拼装用于前端核对展示的键值列表，直接复用 paramsList
-      const viewList = paramsList.map(p => ({ name: p.name, value: p.value }))
-
-      result.value = viewList
-
-      // 封装完整数据包以供 WizardStepBasic 导入回填
+      // 封装数据包（暂时把基础信息拼好）
       ocrPackage.value = {
         type1,
         typeK: type1,
@@ -87,7 +144,7 @@ async function handleFile(file) {
         model,
         manufacturer,
         year,
-        params: paramsList.map(p => ({ k: p.name, v: p.value, conf: 0.98 }))
+        params: [] // 在 importParams 点击导入时，再使用 dataList 拼接
       }
 
       phase.value = 'done'
@@ -108,13 +165,84 @@ function reset() {
   previewUrl.value = ''
   result.value = []
   ocrPackage.value = null
+  rawDataList.value = []
 }
 
-function importParams() {
-  if (ocrPackage.value) {
-    emit('recognized', ocrPackage.value)
+async function importParams() {
+  if (isImporting.value) return
+  if (!ocrPackage.value) {
+    reset()
+    return
   }
-  reset()
+
+  isImporting.value = true
+  try {
+    // 1. 拼接 OCR 面板展示的直观 data 键值对，组成描述文本（发给能效判定接口）
+    const ocrStr = result.value.map(r => `${r.name}:${r.value}`).join(' ')
+
+    // 2. 调用能效判定接口
+    const formData = new FormData()
+    formData.append('params', ocrStr)
+
+    const response = await axios.post('/kouzi/aiEnergyJudgmentWorkFlow', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    console.log('能效判定原始返回:', response.data)
+
+    let energyLevel = '-'
+    if (response.data && response.data.code === 200) {
+      let resData = response.data.data
+      if (typeof resData === 'string') {
+        try {
+          resData = JSON.parse(resData)
+        } catch (e) {
+          console.error('解析能效判定 data 失败:', e)
+        }
+      }
+
+      if (resData && typeof resData === 'object' && resData.result !== undefined && resData.result !== null) {
+        energyLevel = String(resData.result)
+      }
+    }
+
+    // 3. 构建参数列表：使用 dataList (rawDataList)，并在最下端追加入能效等级（能效等级 id 在字典中为 42）
+    const finalParams = rawDataList.value.map(p => ({
+      id: p.id || null,
+      k: p.k,
+      v: p.v
+    }))
+
+    finalParams.push({
+      id: 42,
+      k: '能效等级(国标)',
+      v: energyLevel
+    })
+
+    ocrPackage.value.params = finalParams
+
+    emit('recognized', ocrPackage.value)
+  } catch (error) {
+    console.error('能效判定接口调用异常:', error)
+    // 接口调用失败时也继续导入，但将能效等级设为 '-'，同样需要加上 id: 42
+    const finalParams = rawDataList.value.map(p => ({
+      id: p.id || null,
+      k: p.k,
+      v: p.v
+    }))
+
+    finalParams.push({
+      id: 42,
+      k: '能效等级(国标)',
+      v: '-'
+    })
+
+    ocrPackage.value.params = finalParams
+    emit('recognized', ocrPackage.value)
+  } finally {
+    isImporting.value = false
+    reset()
+  }
 }
 </script>
 
@@ -192,8 +320,11 @@ function importParams() {
         </div>
         <div class="ocr-result-actions">
           <span class="ocr-hint">是否将识别到的参数导入设备参数区域？</span>
-          <button class="btn primary btn-sm" @click="importParams">导入参数</button>
-          <button class="btn ghost btn-sm" @click="reset">忽略</button>
+          <button class="btn primary btn-sm" @click="importParams" :disabled="isImporting">
+            <span v-if="isImporting">导入中...</span>
+            <span v-else>导入参数</span>
+          </button>
+          <button class="btn ghost btn-sm" @click="reset" :disabled="isImporting">忽略</button>
         </div>
       </div>
     </div>

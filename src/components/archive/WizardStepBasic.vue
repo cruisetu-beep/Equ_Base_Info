@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import NameplateOCR from './NameplateOCR.vue'
-import { getBuildingList, getEquipmentTypeDict } from '@/api/devices'
+import { getBuildingList, getEquipmentTypeDict, getAttributeNames } from '@/api/devices'
 
 const props = defineProps({
   data: { type: Object, required: true },
@@ -14,6 +14,7 @@ const errors = ref({})
 
 const buildings = ref([])
 const typeOptions = ref([])
+const attributeDict = ref([])
 
 onMounted(async () => {
   try {
@@ -28,6 +29,13 @@ onMounted(async () => {
     typeOptions.value = tList || []
   } catch (e) {
     console.error('获取设备类型字典异常:', e)
+  }
+
+  try {
+    const attrList = await getAttributeNames()
+    attributeDict.value = attrList || []
+  } catch (e) {
+    console.error('获取参数属性字典异常:', e)
   }
 })
 
@@ -77,14 +85,14 @@ function onBuildingBlur() {
 
 // ── 设备参数（动态行）──────────────────────────────
 const paramRows = ref(
-  (pkg.value.paramGroups?.[0]?.items || []).map(i => ({ ...i }))
+  (pkg.value.paramGroups?.[0]?.items || []).map(i => ({ ...i, showList: false, isSearching: false }))
 )
 if (paramRows.value.length === 0) {
-  paramRows.value = [{ name: '', value: '' }]
+  paramRows.value = [{ name: '', value: '', showList: false, isSearching: false }]
 }
 
 function addParam() {
-  paramRows.value.push({ name: '', value: '' })
+  paramRows.value.push({ name: '', value: '', showList: false, isSearching: false })
 }
 function removeParam(i) {
   if (paramRows.value.length > 1) paramRows.value.splice(i, 1)
@@ -95,6 +103,40 @@ function syncParams() {
   const groups = items.length ? [{ group: '设备参数', items }] : []
   pkg.value = { ...pkg.value, paramGroups: groups }
   emit('update:data', { ...pkg.value })
+}
+
+// 联想过滤属性字典
+function filteredDict(row) {
+  if (!row.isSearching) {
+    return attributeDict.value
+  }
+  const query = row.name
+  if (!query) return attributeDict.value
+  const q = String(query).toLowerCase()
+  return attributeDict.value.filter(item => 
+    item.name && item.name.toLowerCase().includes(q)
+  )
+}
+
+// 选中参数指标选项
+function selectParamItem(row, item) {
+  row.id = item.id
+  row.name = item.name
+  row.showList = false
+  syncParams()
+}
+
+// 失焦延迟隐藏下拉框，并实现防空还原
+function handleBlur(row) {
+  setTimeout(() => {
+    row.showList = false
+    row.isSearching = false
+    // 如果离开时删空了参数名，强制弹回聚焦前的值
+    if (!row.name || !row.name.trim()) {
+      row.name = row.oldName || ''
+      syncParams()
+    }
+  }, 180)
 }
 
 // OCR 智能回填与字典转换匹配
@@ -152,7 +194,7 @@ function onOcrDone(ocr) {
   }
 
   if (ocr.params?.length) {
-    paramRows.value = ocr.params.map(p => ({ name: p.k, value: p.v }))
+    paramRows.value = ocr.params.map(p => ({ id: p.id || null, name: p.k, value: p.v, showList: false, isSearching: false }))
     syncParams()
   }
   emit('update:data', { ...pkg.value })
@@ -314,7 +356,7 @@ const progress = computed(() => {
       </div>
 
       <div class="section-content">
-        <div class="param-table">
+        <div class="param-table" style="overflow: visible;">
         <!-- 表头 -->
         <div class="param-header">
           <span class="ph-name">参数名称</span>
@@ -322,9 +364,22 @@ const progress = computed(() => {
           <span class="ph-del"></span>
         </div>
         <!-- 参数行 -->
-        <div v-for="(row, i) in paramRows" :key="i" class="param-row">
-          <input class="input param-input" placeholder="例如 额定功率"
-                 v-model="row.name" @blur="syncParams" />
+        <div v-for="(row, i) in paramRows" :key="i" class="param-row" style="overflow: visible;">
+          <div class="param-input-wrap">
+            <input class="input param-input" placeholder="例如 额定功率"
+                   v-model="row.name" 
+                   @focus="row.showList = true; row.isSearching = false; row.oldName = row.name"
+                   @blur="handleBlur(row)"
+                   @input="row.isSearching = true; syncParams()" />
+            <div v-if="row.showList && filteredDict(row).length" class="param-dropdown">
+              <div v-for="item in filteredDict(row)" :key="item.id" 
+                   :class="['param-option', row.name === item.name && 'active']" 
+                   @mousedown.prevent="selectParamItem(row, item)">
+                <span>{{ item.name }}</span>
+                <AppIcon v-if="row.name === item.name" name="check" :size="12" stroke="var(--brand)" />
+              </div>
+            </div>
+          </div>
           <input class="input param-input mono" placeholder="例如 30 kW"
                  v-model="row.value" @blur="syncParams" />
           <button class="del-btn" @click="removeParam(i)" :disabled="paramRows.length === 1">
@@ -350,7 +405,7 @@ const progress = computed(() => {
 
 .section-content {
   border: 1px solid var(--line); border-radius: 10px;
-  overflow: hidden; padding: 16px;
+  overflow: visible; padding: 16px;
 }
 
 .section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
@@ -393,7 +448,7 @@ const progress = computed(() => {
 
 /* 参数表格 */
 .param-table {
-  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 8px; overflow: visible;
   margin-bottom: 10px;
 }
 .param-header {
@@ -406,6 +461,45 @@ const progress = computed(() => {
   display: grid; grid-template-columns: 1fr 1fr 36px;
   align-items: center; gap: 0;
   border-bottom: 1px solid var(--line);
+  overflow: visible;
+}
+.param-input-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.param-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-height: 160px;
+  overflow-y: auto;
+}
+.param-option {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.param-option:hover {
+  background: #f0f6ff;
+  color: var(--brand);
+}
+.param-option.active {
+  background: #eaf2ff;
+  color: var(--brand);
+  font-weight: 500;
 }
 .param-row:last-child { border-bottom: none; }
 .param-row:nth-child(even) { background: #fafbff; }

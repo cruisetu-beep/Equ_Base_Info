@@ -71,7 +71,7 @@ const eliminationTypes = ref([
 onMounted(async () => {
   try {
     const names = await getAttributeNames()
-    attributeNames.value = names || []
+    attributeNames.value = (names || []).map(n => typeof n === 'string' ? n : n.name)
     
     const ops = await getLogicOperations()
     if (ops && ops.length > 0) {

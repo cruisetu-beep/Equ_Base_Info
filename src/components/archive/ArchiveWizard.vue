@@ -14,7 +14,7 @@ const emit = defineEmits(['exit'])
 
 const STEP_COUNT = 4
 
-import { addDevice } from '@/api/devices'
+import { addDevice, uploadEquipmentFiles } from '@/api/devices'
 
 const stepIdx = ref(0)
 const pkg     = ref({ docs: {} })
@@ -53,12 +53,16 @@ async function submitArchive(nextAction) {
     }
 
     const filesList = []
+    const realFilesToUpload = []
     if (pkg.value.docs) {
       Object.values(pkg.value.docs).forEach(arr => {
         if (Array.isArray(arr)) {
           arr.forEach(f => {
             if (f.name) {
               filesList.push({ name: f.name, size: f.size || 0 })
+              if (f.rawFile) {
+                realFilesToUpload.push(f.rawFile)
+              }
             }
           })
         }
@@ -80,7 +84,23 @@ async function submitArchive(nextAction) {
     }
 
     console.log('提交新设备载荷:', payload)
+    // 1. 先保存设备主体数据
     await addDevice(payload)
+
+    // 2. 主体保存成功后，如有真实的本地文件，发起批量关联上传
+    if (realFilesToUpload.length > 0) {
+      const equId = payload.code
+      const buildId = payload.buildingCode
+      const descs = realFilesToUpload.map(() => '')
+      console.log(`设备 ${equId} 主体创建成功，开始上传 ${realFilesToUpload.length} 个本地附件...`)
+      try {
+        await uploadEquipmentFiles(realFilesToUpload, equId, buildId, descs)
+        console.log('真实附件批量上传并持久化成功！')
+      } catch (uploadErr) {
+        console.error('附件批量上传失败:', uploadErr)
+        alert('设备主体已保存，但附件上传失败，请稍后在设备详情页重新上传。')
+      }
+    }
 
     if (nextAction === 'exit') {
       emit('exit')
@@ -156,7 +176,6 @@ async function submitArchive(nextAction) {
           </button>
           <div style="margin-left:auto; display:flex; gap:10px">
             <template v-if="stepIdx < 3">
-              <button class="btn ghost">保存草稿</button>
               <button class="btn primary" @click="handleNextStep">
                 下一步 <AppIcon name="chevron-right" :size="14" />
               </button>

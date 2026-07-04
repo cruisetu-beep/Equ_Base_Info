@@ -1,18 +1,17 @@
 <script setup>
 // ── components/archive/WizardStepDocs.vue ─────────────────────────
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import axios from 'axios'
 import AppIcon from '@/components/common/AppIcon.vue'
-import { tsNow, randomTags, randomDocLog, tokenizeDocLog } from '@/utils/logHelpers'
+import { tsNow } from '@/utils/logHelpers'
 
 const props = defineProps({
   data: { type: Object, required: true },
   stages: {
     type: Array,
     default: () => [
-      { n: 'OCR · 文本抽取',  k: 1 },
-      { n: '语义切片',         k: 2 },
-      { n: '实体识别 / 标签',  k: 3 },
-      { n: '向量化 / 入图谱',  k: 4 },
+      { n: '上传',      k: 1 },
+      { n: '解析成功',  k: 2 },
     ],
   },
 })
@@ -28,91 +27,294 @@ const DOC_CATEGORIES = [
   { k: 'other',    n: '其他文件',   icon: 'doc',      color: '#8a9bbf', desc: '其他相关文件资料' },
 ]
 
-const SAMPLE_FILES_FOR = {
-  device:   [{ name: '设备外观-正面.jpg', size: 2840 }, { name: '设备铭牌-特写.jpg', size: 1620 }],
-  site:     [{ name: '安装环境-机房全景.jpg', size: 3120 }, { name: '现场安装照片.jpg', size: 2240 }],
-  archive:  [{ name: '采购合同-2008.pdf', size: 1240 }, { name: '出厂检验报告.pdf', size: 980 }, { name: '现场验收记录.docx', size: 560 }],
-  maintain: [{ name: '2023年度维保记录.xlsx', size: 720 }, { name: '故障维修工单合集.pdf', size: 1840 }],
-  monitor:  [{ name: '电机能效检测报告-2023.pdf', size: 1560 }],
-  other:    [],
-}
-
-
-
-
 const activeCat = ref('device')
 const docs      = ref({ ...(props.data.docs || {}) })
-const logs      = ref([{ ts: tsNow(), lv: 'info', msg: 'AI 文档解析引擎就绪 · 等待文档输入…' }])
 
-// 推进解析阶段
-let stageTimer = null
-stageTimer = setInterval(() => {
-  const next = {}
-  for (const [k, arr] of Object.entries(docs.value)) {
-    next[k] = arr.map(d => {
-      if (d.stage < 4) {
-        const newStage = Math.min(4, d.stage + 1)
-        const newDoc = { ...d, stage: newStage }
-        if (newStage === 2) newDoc.chunks   = Math.floor(d.size / 25 + 8)
-        if (newStage === 3) newDoc.tags     = randomTags(k)
-        if (newStage === 4) newDoc.entities = Math.floor(8 + Math.random() * 16)
-        return newDoc
-      }
-      return d
-    })
-  }
-  docs.value = next
-}, 1100)
+// 初始化时自动将已存在的历史文件及解析结果回填至流日志控制台，防止切步骤时历史丢失
+const initLogs = [{ ts: tsNow(), lv: 'info', msg: '文档解析引擎就绪 · 等待文档输入…' }]
+const existingDocs = Object.values(docs.value).flat()
+if (existingDocs.length > 0) {
+  existingDocs.forEach(d => {
+    if (d.stage >= 2) {
+      initLogs.push({
+        ts: tsNow(),
+        lv: 'info',
+        msg: `历史文件 "${d.name}" 导入检测完成。`,
+        docId: d.id
+      })
+      initLogs.push({
+        ts: tsNow(),
+        lv: 'ok',
+        msg: `解析成功！成功提取文件格式与关键数据项。${d.extractedText || ''}`,
+        docId: d.id
+      })
+    }
+  })
+}
 
-// 流日志
-let logTimer = null
-watch(docs, (val) => {
-  clearInterval(logTimer)
-  const allDocs = Object.entries(val).flatMap(([k, arr]) => arr.map(d => ({ ...d, cat: k })))
-  const active = allDocs.find(d => d.stage > 0 && d.stage < 4)
-  if (!active) return
-  logTimer = setInterval(() => {
-    const ev = randomDocLog(active)
-    logs.value = [...logs.value, { ts: tsNow(), ...ev }].slice(-30)
-  }, 750)
-}, { deep: true })
+const logs = ref(initLogs)
+
+const allDocs       = computed(() => Object.values(docs.value).flat())
+const stageMax      = computed(() => Math.max(0, ...allDocs.value.map(d => d.stage)))
 
 // 同步到父层
 watch(docs, (val) => {
   emit('update:data', { ...props.data, docs: val })
 }, { deep: true })
 
-onUnmounted(() => {
-  clearInterval(stageTimer)
-  clearInterval(logTimer)
+const logConsoleRef = ref(null)
+
+function scrollToBottom(smooth = true) {
+  nextTick(() => {
+    if (logConsoleRef.value) {
+      logConsoleRef.value.scrollTo({
+        top: logConsoleRef.value.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      })
+    }
+  })
+}
+
+// 侦听日志追加，自动滚动至底端
+watch(logs, () => {
+  scrollToBottom(true)
+}, { deep: true })
+
+onMounted(() => {
+  scrollToBottom(false)
 })
 
-function addDocs(catK, files) {
+async function addDocs(catK, files) {
   const newItems = files.map((f, i) => ({
-    id: `${catK}-${Date.now()}-${i}`, name: f.name, size: f.size, stage: 1,
+    id: `${catK}-${Date.now()}-${i}`,
+    name: f.name,
+    size: f.size,
+    stage: 1, // 刚上传初始化为阶段 1 (上传/解析中)
+    rawFile: f.rawFile || null,
+    url: f.url || ''
   }))
+  
+  // 挂载显示
   docs.value = { ...docs.value, [catK]: [...(docs.value[catK] || []), ...newItems] }
-  logs.value = [...logs.value, { ts: tsNow(), lv: 'info', msg: `接收到 ${newItems.length} 份新文档 → 投入 OCR 队列` }]
+  
+  // 在循环外统一只打印一次接收日志，包含本次添加的文件总数！
+  logs.value = [...logs.value, { 
+    ts: tsNow(), 
+    lv: 'info', 
+    msg: `接收到 ${newItems.length} 份文件，开始导入处理…` 
+  }].slice(-30)
+  
+  // 逐个文件调用后端真实 API 解析
+  for (const item of newItems) {
+    if (!item.rawFile) continue
+    
+    const isImg = item.rawFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(item.name)
+    
+    const formData = new FormData()
+    formData.append('multipartFile', item.rawFile)
+    formData.append('isImg', isImg)
+    
+    try {
+      // 请求真实接口
+      const response = await axios.post('/kouzi/ocrFileWorkFlow', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      
+      // 1. 解析提取后端返回的具体字段并进行深度递归反序列化
+      let parsedData = null
+      const resData = response.data
+      if (resData && resData.data) {
+        let temp = resData.data
+        for (let i = 0; i < 5; i++) {
+          if (typeof temp === 'string') {
+            try {
+              const val = JSON.parse(temp)
+              if (val === temp) break
+              temp = val
+            } catch (e) {
+              break
+            }
+          } else {
+            break
+          }
+        }
+        parsedData = temp
+      }
+      
+      let dataStr = ''
+      if (parsedData) {
+        if (typeof parsedData === 'object') {
+          const pairs = Object.entries(parsedData).map(([k, v]) => `${k}: ${v}`)
+          if (pairs.length > 0) {
+            dataStr = ` (${pairs.join(', ')})`
+          }
+        } else if (typeof parsedData === 'string' && parsedData.trim().length > 0) {
+          dataStr = ` (${parsedData})`
+        }
+      }
+      
+      // 2. 更新解析状态为成功 2，并妥善持久化已提取数据到 doc 节点上以便切步骤时回填
+      const next = {}
+      for (const [k, arr] of Object.entries(docs.value)) {
+        next[k] = arr.map(d => {
+          if (d.id === item.id) {
+            return { ...d, stage: 2, extractedText: dataStr }
+          }
+          return d
+        })
+      }
+      docs.value = next
+      
+      // 3. 打印对应文件的解析成功日志，带上文件名，便于用户区分，并绑定 docId
+      logs.value = [...logs.value, { 
+        ts: tsNow(), 
+        lv: 'ok', 
+        msg: `解析文件 "${item.name}" 成功！成功提取文件格式与关键数据项。${dataStr}`,
+        docId: item.id
+      }].slice(-30)
+      
+    } catch (err) {
+      console.error('接口上传解析失败:', err)
+      
+      // 解析失败时也推进状态防止流程阻断，但在日志里警示
+      const next = {}
+      for (const [k, arr] of Object.entries(docs.value)) {
+        next[k] = arr.map(d => {
+          if (d.id === item.id) {
+            return { ...d, stage: 2, error: true }
+          }
+          return d
+        })
+      }
+      docs.value = next
+      
+      logs.value = [...logs.value, { 
+        ts: tsNow(), 
+        lv: 'warn', 
+        msg: `文件 "${item.name}" 导入解析失败：${err.message || '网络或服务端异常'}`,
+        docId: item.id
+      }].slice(-30)
+    }
+  }
 }
 
 function previewFile(doc) {
-  // 真实文件用 doc.url，mock 数据用文件名搜索演示
-  const url = doc.url || `https://www.google.com/search?q=${encodeURIComponent(doc.name)}`
-  window.open(url, '_blank')
+  let url = doc.url
+  // 容错：若 blob url 丢失或由于生命周期被销毁，自动利用内存中缓存在 rawFile 的真实 File 对象再行建立
+  if (!url && doc.rawFile) {
+    url = URL.createObjectURL(doc.rawFile)
+  }
+  
+  if (url) {
+    window.open(url, '_blank')
+  } else {
+    alert('暂无可用的预览链接，请于建档确认后下载查看。')
+  }
 }
 
-function handleSampleAdd(catK) {
-  addDocs(catK, SAMPLE_FILES_FOR[catK] || [])
+function removeDoc(doc) {
+  const catK = activeCat.value
+  docs.value[catK] = (docs.value[catK] || []).filter(d => d.id !== doc.id)
+  
+  // 精确联动删除：只清除与当前被删文件唯一 id (docId) 强绑定的控制台日志，完美解决同名文件多次上传的精确过滤与回填问题
+  logs.value = logs.value.filter(l => l.docId !== doc.id)
 }
 
-const allDocs       = computed(() => Object.values(docs.value).flat())
-const totalChunks   = computed(() => allDocs.value.reduce((s, d) => s + (d.chunks || 0), 0))
-const totalEntities = computed(() => allDocs.value.reduce((s, d) => s + (d.entities || 0), 0))
-const totalTags     = computed(() => allDocs.value.reduce((s, d) => s + (d.tags?.length || 0), 0))
-const stageMax      = computed(() => Math.max(0, ...allDocs.value.map(d => d.stage)))
+const fileInputRef = ref(null)
+
+function triggerFileSelect() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+function onFileSelected(e) {
+  const rawFiles = Array.from(e.target.files || [])
+  if (rawFiles.length === 0) {
+    e.target.value = ''
+    return
+  }
+  
+  const validFiles = []
+  const cat = activeCat.value
+  
+  for (const f of rawFiles) {
+    // 1. 大小校验：最大 50MB
+    const limitBytes = 50 * 1024 * 1024
+    if (f.size > limitBytes) {
+      const sizeMb = (f.size / (1024 * 1024)).toFixed(1)
+      const errorMsg = `文件 "${f.name}" 大小（${sizeMb}MB）超过了 50MB 的限制！`
+      alert(errorMsg)
+      
+      logs.value = [...logs.value, {
+        ts: tsNow(),
+        lv: 'warn',
+        msg: `上传拦截：${errorMsg}`
+      }].slice(-30)
+      continue
+    }
+    
+    // 2. 格式校验
+    const isImage = f.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name)
+    const isPdf   = f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
+    const isWord  = f.type.includes('word') || f.type.includes('officedocument') || /\.(doc|docx)$/i.test(f.name)
+    
+    if (['device', 'site'].includes(cat)) {
+      // 照片类分类：仅支持图片
+      if (!isImage) {
+        const errorMsg = `该分类仅支持上传图片格式（JPG/PNG/WEBP等）！`
+        alert(`文件 "${f.name}" 上传失败：${errorMsg}`)
+        
+        logs.value = [...logs.value, {
+          ts: tsNow(),
+          lv: 'warn',
+          msg: `上传拦截：[${f.name}] ${errorMsg}`
+        }].slice(-30)
+        continue
+      }
+    } else {
+      // 档案、记录类分类：支持 PDF, Word, 图片
+      if (!isImage && !isPdf && !isWord) {
+        const errorMsg = `格式不支持，该分类仅支持 PDF、Word 及图片文件！`
+        alert(`文件 "${f.name}" 上传失败：${errorMsg}`)
+        
+        logs.value = [...logs.value, {
+          ts: tsNow(),
+          lv: 'warn',
+          msg: `上传拦截：[${f.name}] ${errorMsg}`
+        }].slice(-30)
+        continue
+      }
+    }
+    
+    // 校验通过：组装预览地址及文件包裹 (为图片、PDF、Word 均生成本地 blob URL 链接，以便新标签页原生展示或直接下载)
+    let previewUrl = ''
+    if (isImage || isPdf || isWord) {
+      previewUrl = URL.createObjectURL(f)
+    }
+    validFiles.push({
+      name: f.name,
+      size: Math.round(f.size / 1024),
+      rawFile: f,
+      url: previewUrl
+    })
+  }
+  
+  if (validFiles.length > 0) {
+    addDocs(cat, validFiles)
+  }
+  e.target.value = ''
+}
 
 const activeCatInfo = computed(() => DOC_CATEGORIES.find(c => c.k === activeCat.value))
 const activeList    = computed(() => docs.value[activeCat.value] || [])
+
+const acceptTypes = computed(() => {
+  if (['device', 'site'].includes(activeCat.value)) {
+    return 'image/*'
+  }
+  return 'image/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+})
 </script>
 
 <template>
@@ -131,7 +333,7 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
           <div class="n">{{ c.n }}</div>
           <div class="c">
             {{ (docs[c.k] || []).length > 0
-              ? `${(docs[c.k] || []).filter(d => d.stage >= 4).length}/${(docs[c.k] || []).length} 已解析`
+              ? `${(docs[c.k] || []).filter(d => d.stage >= 2).length}/${(docs[c.k] || []).length} 已解析`
               : '未上传' }}
           </div>
         </div>
@@ -149,16 +351,14 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
           <div class="desc">{{ activeCatInfo.desc }}</div>
         </div>
         <div style="flex:1" />
-        <span class="badge">{{ activeList.filter(d => d.stage >= 4).length }} / {{ activeList.length }} 已解析</span>
+        <span class="badge">{{ activeList.filter(d => d.stage >= 2).length }} / {{ activeList.length }} 已解析</span>
       </div>
 
-      <div class="uploader" @click="handleSampleAdd(activeCat)">
+      <div class="uploader" @click="triggerFileSelect">
+        <input ref="fileInputRef" type="file" multiple style="display: none;" :accept="acceptTypes" @change="onFileSelected" />
         <div class="icn"><AppIcon name="upload" :size="26" /></div>
         <div class="h">点击上传或拖拽 {{ activeCatInfo.n }}</div>
         <div class="s">{{ ['device','site'].includes(activeCat) ? '支持 JPG / PNG，可多张' : '支持 PDF / Word / 图片，单文件 ≤ 50MB' }}</div>
-        <div class="s" style="color:var(--brand);margin-top:6px">
-          <AppIcon name="sparkles" :size="11" /> 点击此区域加载示例文档进行演示
-        </div>
       </div>
 
       <!-- 照片网格 -->
@@ -168,10 +368,20 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
           暂无照片
         </div>
         <div v-else v-for="d in activeList" :key="d.id"
-             :class="['photo-cell', d.stage > 0 && d.stage < 4 && 'scan-anim']">
-          <AppIcon name="eye" :size="28" stroke="rgba(255,255,255,0.4)" />
+             :class="['photo-cell', d.stage > 0 && d.stage < 2 && 'scan-anim']"
+             @click="previewFile(d)">
+          <img v-if="d.url" :src="d.url" class="photo-img" />
+          <AppIcon v-else name="eye" :size="20" stroke="rgba(255,255,255,0.4)" />
           <span class="label">{{ d.name }}</span>
-          <span v-if="d.stage >= 4" class="done-tag">已解析</span>
+          <span v-if="d.stage >= 2" class="done-tag">已解析</span>
+          <!-- 悬浮小眼睛预览遮罩 -->
+          <div class="photo-preview-overlay">
+            <AppIcon name="eye" :size="16" stroke="white" stroke-width="2.5" />
+          </div>
+          <!-- 右上角红x删除按钮 -->
+          <button class="photo-delete-btn" title="删除照片" @click.stop="removeDoc(d)">
+            ×
+          </button>
         </div>
       </div>
 
@@ -182,19 +392,19 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
           暂无文档
         </div>
         <template v-else v-for="d in activeList" :key="d.id">
-          <div :class="['doc-row', d.stage >= 4 && 'done']">
+          <div :class="['doc-row', d.stage >= 2 && 'done']">
             <div class="icn"><AppIcon name="doc" :size="14" /></div>
             <div class="info">
               <div class="n">{{ d.name }}</div>
               <div class="meta">{{ d.size }}KB</div>
             </div>
-            <button class="preview-btn" title="预览文件" @click="previewFile(d)">
+            <button class="preview-btn" title="预览文件" @click.stop="previewFile(d)">
               <AppIcon name="eye" :size="14" stroke="var(--brand)" />
             </button>
-            <div class="progress"><div class="progress-fill" :style="{ width: `${d.stage * 25}%` }" /></div>
-            <span class="stage-tag">
-              {{ STAGES.find(s => s.k === d.stage)?.n?.split('·')[0]?.trim() || '已完成' }}
-            </span>
+            <button class="doc-delete-btn" title="删除文件" @click.stop="removeDoc(d)">
+              ×
+            </button>
+            <span class="stage-tag">{{ d.stage >= 2 ? '已就绪' : '解析中' }}</span>
           </div>
         </template>
       </div>
@@ -222,35 +432,26 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
           <div class="label">{{ s.n }}</div>
           <div class="stat">
             <template v-if="s.k === 1 && allDocs.length > 0">{{ allDocs.length }} 份</template>
-            <template v-if="s.k === 2 && totalChunks > 0">{{ totalChunks }} 片</template>
-            <template v-if="s.k === 3 && totalTags > 0">{{ totalTags }} 标签</template>
-            <template v-if="s.k === 4 && totalEntities > 0">{{ totalEntities }} 实体</template>
+            <template v-if="s.k === 2 && allDocs.filter(d => d.stage >= 2).length > 0">
+              {{ allDocs.filter(d => d.stage >= 2).length }} 份
+            </template>
           </div>
         </div>
       </div>
 
-      <div class="parse-log-2">
+      <div class="parse-log-2" ref="logConsoleRef">
         <span v-for="(l, i) in logs" :key="i" class="line">
           <span class="ts">{{ l.ts }}</span>
           <span :class="`lv-${l.lv}`">[{{ l.lv.toUpperCase() }}]</span>
-          <!-- token 着色渲染 -->
-          <template v-for="(tok, j) in tokenizeDocLog(l.msg)" :key="j">
-            <span v-if="tok.type === 'ent'"    class="ent">{{ tok.value }}</span>
-            <span v-else-if="tok.type === 'cyan'"   :style="{ color: '#4dc9ff' }">{{ tok.value }}</span>
-            <span v-else-if="tok.type === 'yellow'" :style="{ color: '#ffb547' }">{{ tok.value }}</span>
-            <template v-else>{{ tok.value }}</template>
-          </template>
+          <span>{{ l.msg }}</span>
         </span>
       </div>
 
-      <div class="doc-stats-2">
+      <div class="doc-stats-2" style="grid-template-columns: 1fr;">
         <div class="doc-stat-2"><div class="v">{{ allDocs.length }}</div><div class="l">文档</div></div>
-        <div class="doc-stat-2"><div class="v">{{ totalChunks }}</div><div class="l">语义切片</div></div>
-        <div class="doc-stat-2"><div class="v">{{ totalEntities }}</div><div class="l">图谱实体</div></div>
       </div>
     </div>
 
-    <!-- 底部操作栏 -->
   </div>
 </template>
 
@@ -281,15 +482,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .doc-main-head .desc { font-size: 11.5px; color: var(--text-2); margin-top:2px; }
 
 .uploader {
-  border: 2px dashed var(--line-strong); border-radius: 10px;
-  padding: 24px; text-align: center; cursor: pointer;
+  border: 1px dashed var(--line-strong); border-radius: 8px;
+  padding: 10px 14px; text-align: center; cursor: pointer;
   background: linear-gradient(180deg, #f8faff, #f3f6fb);
-  transition: all 0.15s; margin-bottom: 14px;
+  transition: all 0.15s; margin-bottom: 12px;
 }
 .uploader:hover { border-color: var(--brand); background: linear-gradient(180deg, #eaf2ff, #f5f9ff); }
-.uploader .h { font-size: 13px; color: var(--text-1); }
-.uploader .s { font-size: 11px; color: var(--text-3); margin-top: 4px; }
-.uploader .icn { color: var(--brand); margin-bottom: 6px; display:flex; justify-content:center; }
+.uploader .h { font-size: 12px; color: var(--text-1); }
+.uploader .s { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+.uploader .icn { color: var(--brand); margin-bottom: 2px; display:flex; justify-content:center; }
 
 .doc-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; max-height: 360px; }
 .doc-row {
@@ -300,12 +501,6 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .doc-row .info { flex: 1; min-width: 0; }
 .doc-row .n { font-size: 12px; color: var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .doc-row .meta { font-size: 10.5px; color: var(--text-2); margin-top:2px; font-family: "JetBrains Mono", monospace; }
-.doc-row .progress { width: 100px; height: 4px; background: #e3ebf7; border-radius: 2px; overflow: hidden; }
-.doc-row .progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width 0.5s; }
-.doc-row.done .progress-fill { background: var(--ok); }
-.doc-row .stage-tag { font-size: 10px; font-family: "JetBrains Mono", monospace; padding: 2px 7px; border-radius: 3px; background: rgba(47,127,255,0.10); color: var(--brand); border: 1px solid rgba(47,127,255,0.22); }
-.doc-row.done .stage-tag { background: rgba(43,217,168,0.10); color: var(--ok); border-color: rgba(43,217,168,0.22); }
-.doc-tags-strip { display: flex; gap: 4px; flex-wrap: wrap; padding-left: 38px; padding-right: 12px; padding-top: 4px; }
 .preview-btn {
   display: grid; place-items: center; width: 28px; height: 28px;
   border: 1px solid var(--line); border-radius: 6px;
@@ -315,32 +510,68 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .doc-row:hover .preview-btn { opacity: 1; }
 .preview-btn:hover { border-color: var(--brand); background: #f0f6ff; }
 
-.doc-tag-chip {
-  font-size: 10px; padding: 1px 6px; border-radius: 3px;
-  background: rgba(122,92,255,0.08); color: #6a4eff;
-  border: 1px solid rgba(122,92,255,0.20);
-  font-family: "JetBrains Mono", monospace;
-  opacity: 0; animation: tag-pop 0.3s ease forwards;
-}
-@keyframes tag-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
-
-.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.photo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .photo-cell {
   aspect-ratio: 4/3; border-radius: 8px; overflow:hidden;
   border: 1px solid var(--line);
   background: linear-gradient(135deg, #2a3855, #4a5780);
   position: relative; display: flex; align-items: center; justify-content: center;
   color: white; font-size: 11px;
+  cursor: pointer;
 }
-.photo-cell::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 60%); }
-.photo-cell .label { position: absolute; bottom: 6px; left: 6px; font-size: 10px; opacity: 0.85; z-index: 1; }
-.photo-cell.scan-anim::after {
-  content:""; position:absolute; left:0; right:0; top:0; height: 30%;
-  background: linear-gradient(180deg, transparent, rgba(77,201,255,0.35) 70%, rgba(77,201,255,0));
-  animation: photo-scan 2s ease-in-out infinite;
+.photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
 }
-@keyframes photo-scan { 0% { top: -30%; } 100% { top: 100%; } }
-.photo-cell .done-tag { position:absolute; top:6px; right:6px; padding:1px 6px; border-radius:3px; background:rgba(43,217,168,0.85); font-size:10px; color:white; z-index:2; }
+.photo-cell::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 60%); z-index: 1; }
+.photo-cell .label { position: absolute; bottom: 4px; left: 4px; right: 4px; font-size: 9px; opacity: 0.85; z-index: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.photo-cell .done-tag { position:absolute; top:4px; left:4px; padding:1px 4px; border-radius:3px; background:rgba(43,217,168,0.85); font-size:9px; color:white; z-index: 2; }
+.photo-delete-btn {
+  position: absolute; top: 4px; right: 4px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #ff4d4f;
+  border: none; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0; transition: opacity 0.15s, background-color 0.15s, transform 0.15s;
+  z-index: 3;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  padding: 0 0 1px 0;
+  text-align: center;
+}
+.photo-cell:hover .photo-delete-btn { opacity: 1; }
+.photo-delete-btn:hover { background: #ff7875; transform: scale(1.1); }
+
+.photo-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+.photo-cell:hover .photo-preview-overlay {
+  opacity: 1;
+}
+
+.doc-delete-btn {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: white; cursor: pointer; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.15s, border-color 0.15s;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+}
+.doc-row:hover .doc-delete-btn { opacity: 1; }
+.doc-delete-btn:hover { border-color: var(--danger); background: rgba(220, 53, 69, 0.05); }
 
 .parse-stream-2 {
   background: white; border: 1px solid var(--line); border-radius: 12px;
@@ -382,8 +613,15 @@ const activeList    = computed(() => docs.value[activeCat.value] || [])
 .parse-log-2 .lv-warn { color: #ffb547; }
 .parse-log-2 .ent     { color: #b3a4ff; }
 
-.doc-stats-2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.doc-stats-2 { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
 .doc-stat-2 { padding: 10px; background: #f5f9ff; border: 1px solid var(--line); border-radius: 8px; text-align: center; }
 .doc-stat-2 .v { font-size: 18px; color: var(--brand); font-family: "Orbitron", sans-serif; font-weight: 600; }
 .doc-stat-2 .l { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+.photo-cell.scan-anim::after {
+  content:""; position:absolute; left:0; right:0; top:0; height: 30%;
+  background: linear-gradient(180deg, transparent, rgba(77,201,255,0.35) 70%, rgba(77,201,255,0));
+  animation: photo-scan 2s ease-in-out infinite;
+}
+@keyframes photo-scan { 0% { top: -30%; } 100% { top: 100%; } }
+.doc-row .stage-tag { font-size: 10px; font-family: "JetBrains Mono", monospace; padding: 2px 7px; border-radius: 3px; background: rgba(43,217,168,0.10); color: var(--ok); border: 1px solid rgba(43,217,168,0.22); }
 </style>

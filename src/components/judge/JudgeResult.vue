@@ -248,6 +248,41 @@ const summary = computed(() => {
 const phaseoutTotal = computed(() => summary.value.deadline + summary.value.mandatory)
 const enabledCount  = computed(() => RULES_LIB_INIT.filter(r => r.enabled !== false).length)
 
+const processStats = computed(() => {
+  const stats = {}
+  props.results.forEach((r, idx) => {
+    const procs = Object.keys(r.hits || {})
+    procs.forEach(proc => {
+      if (!stats[proc]) stats[proc] = { normal: 0, phaseout: 0 }
+      
+      const edited = editData.value[idx]?.[proc]
+      let type = '正常'
+      if (edited) {
+        type = edited.eliminationType || '正常'
+      } else {
+        const procHits = r.hits[proc] || []
+        const firstHit = procHits[0]
+        if (procHits.length > 0) {
+          const rawType = firstHit?.rule?.eliminationType || firstHit?.apiHit?.eliminationType || ''
+          type = rawType.includes('强制') ? '强制淘汰' : (rawType.includes('限期') ? '限期淘汰' : '正常')
+        }
+      }
+      
+      if (type === '正常') {
+        stats[proc].normal++
+      } else {
+        stats[proc].phaseout++
+      }
+    })
+  })
+  
+  return Object.keys(stats).map(name => ({
+    name,
+    normal: stats[name].normal,
+    phaseout: stats[name].phaseout
+  }))
+})
+
 // 保存判定结果至后台数据库（仅保存当前勾选设备）
 async function handleSave() {
   const selectedResults = props.results.filter(r => {
@@ -437,23 +472,50 @@ function getEnergyLevelDesc(r) {
   <div class="judge-result float-in">
     <!-- 汇总卡 -->
     <div class="result-summary">
-      <h2><AppIcon name="check" :size="24" stroke="#4dc9ff" /> 判定分析完成</h2>
-      <div class="sub">基于规则库 v1.3 · 共 {{ enabledCount }} 条启用规则进行实时判定</div>
-      <div class="summary-stats">
-        <div class="ss-item">
-          <div class="l">本次判定总数</div><div class="v">{{ summary.total }}</div><div class="pct">台</div>
+      <div class="rs-left">
+        <div class="summary-left">
+          <h2><AppIcon name="check" :size="28" stroke="#4dc9ff" /> 分析完成</h2>
+          <div class="sub">基于规则库 · 共 {{ enabledCount }} 条规则</div>
         </div>
-        <div class="ss-item ok">
-          <div class="l">正常运行</div><div class="v">{{ summary.normal }}</div><div class="pct">{{ pct(summary.normal) }}</div>
+        <div class="ss-item big-card">
+          <div class="l">本次设备数量</div>
+          <div class="v">{{ summary.total }}<span class="unit">台</span></div>
         </div>
-        <div class="ss-item warn">
-          <div class="l">低效设备</div><div class="v">{{ summary.low_eff }}</div><div class="pct">{{ pct(summary.low_eff) }}</div>
+        
+        <div class="ss-item big-card">
+          <div class="l">发现异常设备</div>
+          <div class="v" style="color: #ff8da0;">{{ summary.total - summary.normal }}<span class="unit" style="color: rgba(255,141,160,0.8);">台</span></div>
         </div>
-        <div class="ss-item danger">
-          <div class="l">限期淘汰</div><div class="v">{{ summary.deadline }}</div><div class="pct">{{ pct(summary.deadline) }}</div>
+        
+        <div class="ss-item big-card">
+          <div class="l">本次判定方法</div>
+          <div class="v">{{ processStats.length }}<span class="unit">种</span></div>
         </div>
-        <div class="ss-item danger">
-          <div class="l">强制淘汰</div><div class="v">{{ summary.mandatory }}</div><div class="pct">{{ pct(summary.mandatory) }}</div>
+      </div>
+      
+      <div class="rs-right">
+        <div class="methods-col">
+          <div v-for="method in processStats" :key="method.name" class="method-row">
+            <div class="m-name">{{ method.name }}</div>
+            <div class="m-stat ok">
+              <div class="stat-info">
+                <span>正常数量</span>
+              </div>
+              <div class="stat-num">
+                <span class="pct">{{ pct(method.normal) }}</span>
+                <strong>{{ method.normal }}</strong>
+              </div>
+            </div>
+            <div class="m-stat danger">
+              <div class="stat-info">
+                <span>淘汰数量</span>
+              </div>
+              <div class="stat-num">
+                <span class="pct">{{ pct(method.phaseout) }}</span>
+                <strong>{{ method.phaseout }}</strong>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -665,22 +727,32 @@ function getEnergyLevelDesc(r) {
 </template>
 
 <style scoped>
-.judge-result { display: flex; flex-direction: column; gap: 18px; }
-.result-summary { padding: 24px 28px; background: linear-gradient(135deg, #0f1d3d 0%, #1a2a55 100%); border-radius: 14px; color: white; position: relative; overflow: hidden; }
+.judge-result { display: flex; flex-direction: column; gap: 18px; margin-top: 20px; }
+.result-summary { padding: 16px 20px; background: linear-gradient(135deg, #0f1d3d 0%, #1a2a55 100%); border-radius: 12px; color: white; position: relative; overflow: hidden; display: flex; align-items: stretch; gap: 24px; }
 .result-summary::before { content: ""; position: absolute; right: -40px; top: -40px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(77,201,255,0.20), transparent 70%); }
-.result-summary h2 { margin: 0; font-size: 22px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
-.result-summary .sub { font-size: 12.5px; color: #8da3c8; margin-top: 6px; }
-.summary-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 22px; position: relative; z-index: 1; }
-.ss-item { padding: 14px 16px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
-.ss-item.danger { border-color: rgba(224,57,79,0.40); background: rgba(224,57,79,0.10); }
-.ss-item.warn   { border-color: rgba(234,140,46,0.40); background: rgba(234,140,46,0.08); }
-.ss-item.ok     { border-color: rgba(43,217,168,0.40); background: rgba(43,217,168,0.08); }
-.ss-item .l { font-size: 11px; color: #8da3c8; }
-.ss-item .v { font-family: "Orbitron", sans-serif; font-size: 28px; font-weight: 600; color: white; margin-top: 4px; line-height: 1; }
-.ss-item.danger .v { color: #ff8da0; }
-.ss-item.warn .v   { color: #ffb547; }
-.ss-item.ok .v     { color: #2bd9a8; }
-.ss-item .pct { font-size: 11px; color: #8da3c8; margin-top: 4px; }
+.rs-left { display: flex; flex: 1; gap: 16px; position: relative; z-index: 1; }
+.rs-right { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; z-index: 1; }
+
+.summary-left { flex-shrink: 0; min-width: 140px; display: flex; flex-direction: column; justify-content: center; }
+.summary-left h2 { margin: 0; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.summary-left .sub { font-size: 13px; color: #c5d3e8; margin-top: 6px; }
+
+.ss-item.big-card { flex: 1; padding: 16px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.ss-item.big-card .l { font-size: 13px; color: #c5d3e8; }
+.ss-item.big-card .v { font-family: "Orbitron", sans-serif; font-size: 26px; font-weight: 600; color: white; margin-top: 8px; line-height: 1; display: flex; align-items: baseline; gap: 4px; }
+.ss-item.big-card .unit { font-size: 13px; color: #c5d3e8; font-family: sans-serif; font-weight: normal; }
+
+.methods-col { display: flex; flex-direction: column; gap: 8px; }
+.method-row { display: flex; align-items: stretch; gap: 12px; padding: 0 14px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); overflow: hidden; min-height: 42px; }
+.method-row .m-name { flex: 1.2; color: #c5d3e8; font-size: 14px; font-weight: 500; display: flex; align-items: center; }
+.method-row .m-stat { flex: 1; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; border-radius: 0; font-size: 13px; }
+.method-row .m-stat.ok { background: rgba(43,217,168,0.08); border-left: 1px solid rgba(43,217,168,0.20); border-right: 1px solid rgba(43,217,168,0.20); color: #2bd9a8; }
+.method-row .m-stat.danger { background: rgba(224,57,79,0.10); border-left: 1px solid rgba(224,57,79,0.20); border-right: 1px solid rgba(224,57,79,0.20); color: #ff8da0; }
+.method-row .m-stat .stat-info { display: flex; flex-direction: column; }
+.method-row .m-stat .stat-info span { color: #c5d3e8; font-size: 13px; }
+.method-row .m-stat .stat-num { display: flex; align-items: baseline; gap: 8px; }
+.method-row .m-stat .stat-num .pct { font-size: 12px; color: rgba(255,255,255,0.6); font-family: sans-serif; }
+.method-row .m-stat .stat-num strong { font-family: "Orbitron", sans-serif; font-size: 18px; }
 
 /* 复选框及工具栏样式 */
 .result-toolbar {
@@ -739,11 +811,13 @@ function getEnergyLevelDesc(r) {
 
 .ri-head { padding: 16px 20px; display: flex; gap: 16px; align-items: center; cursor: pointer; }
 .ri-head .thumb { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, rgba(77,201,255,0.15), rgba(77,201,255,0.05)); border: 1px solid rgba(77,201,255,0.22); display: grid; place-items: center; color: var(--cl); flex-shrink: 0; }
-.ri-head .info { min-width: 200px; flex-shrink: 0; }
+.ri-head .info { width: 320px; flex-shrink: 0; }
 .ri-head .info .code { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--text-2); }
 .ri-head .info .name { font-size: 14px; color: var(--text-0); font-weight: 500; margin-top: 2px; }
 .ri-head .info .meta { font-size: 11.5px; color: var(--text-2); margin-top: 4px; }
 .ri-head .level-tag { flex-shrink: 0; }
+.ri-head .level-tag.normal { color: var(--ok); }
+.ri-head .level-tag.phaseout { color: var(--cl); }
 .ri-head .hits-cnt { font-size: 12px; color: var(--text-1); display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-shrink: 0; }
 .ri-head .hits-cnt strong { font-family: "Orbitron", sans-serif; font-size: 22px; color: var(--cl); }
 .ri-head .chev { color: var(--text-3); transition: transform 0.2s; flex-shrink: 0; }

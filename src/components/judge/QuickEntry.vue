@@ -1,14 +1,15 @@
 <script setup>
 // ── components/judge/QuickEntry.vue ───────────────────────────────
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
-import { DEV_TYPES, DEV_TYPE_MAP } from '@/data/devices'
+import { DEV_TYPE_MAP } from '@/data/devices'
+import { getEquipmentTypeDict, getAttributeNames } from '@/api/devices'
 
 defineProps({ rules: { type: Array, required: true } })
 const emit = defineEmits(['start', 'back'])
 
 const d = ref({
-  name: '', typeK: 'motor', type2: '中小型三相异步电动机',
+  name: '', typeK: 'motor', typeDbId: '', type2: '中小型三相异步电动机',
   model: '', year: '', manufacturer: '', params: {},
 })
 const paramK = ref('功率')
@@ -37,8 +38,87 @@ const SAMPLES = [
     year: '2009', manufacturer: '特变电工', params: { 容量: '630 kVA', 电压: '10/0.4 kV' } },
 ]
 
-const typeOptions  = DEV_TYPES.slice(0, 8)
+const typeOptions = ref([])
+const attributeOptions = ref([])
 const canSubmit    = computed(() => d.value.name && d.value.typeK && d.value.model)
+
+const mapTypeNameToIconAndColor = (name) => {
+  if (name.includes("电动机") || name.includes("电机")) return { k: "motor", icon: "motor", color: "#4dc9ff" };
+  if (name.includes("风机")) return { k: "fan", icon: "fan", color: "#7ad6ff" };
+  if (name.includes("泵")) return { k: "pump", icon: "pump", color: "#2bd9a8" };
+  if (name.includes("变压器")) return { k: "transformer", icon: "transformer", color: "#a799ff" };
+  if (name.includes("锅炉")) return { k: "boiler", icon: "boiler", color: "#ff8a47" };
+  if (name.includes("压缩机")) return { k: "compressor", icon: "compressor", color: "#ffb547" };
+  if (name.includes("制冷") || name.includes("空调")) return { k: "chiller", icon: "sun", color: "#7be9d4" };
+  if (name.includes("焊机")) return { k: "welder", icon: "bolt", color: "#ff6b8a" };
+  if (name.includes("电阻") || name.includes("加热")) return { k: "resistor", icon: "factory", color: "#ff8a47" };
+  if (name.includes("电器")) return { k: "appliance", icon: "plug", color: "#5bb8ff" };
+  if (name.includes("机床")) return { k: "machine", icon: "cpu", color: "#a799ff" };
+  if (name.includes("锻压")) return { k: "forge", icon: "factory", color: "#9c8bff" };
+  if (name.includes("热处理")) return { k: "heat", icon: "factory", color: "#ff7d6a" };
+  if (name.includes("阀")) return { k: "valve", icon: "chip", color: "#7ad6ff" };
+  if (name.includes("柴油")) return { k: "diesel", icon: "factory", color: "#9c8bff" };
+  return { k: "other", icon: "cube", color: "#97a4c0" };
+};
+
+
+
+const handleTypeInput = (val) => {
+  d.value.type2 = val
+  const matched = typeOptions.value.find(t => t.label === val)
+  if (matched) {
+    d.value.typeK = matched.k
+    d.value.typeDbId = matched.dbId
+  } else {
+    d.value.typeK = 'other'
+    d.value.typeDbId = ''
+  }
+}
+
+const handleSampleClick = (s) => {
+  const opt = typeOptions.value.find(t => t.label === s.type2 || t.k === s.typeK)
+  d.value = {
+    ...s,
+    typeDbId: opt ? opt.dbId : '',
+    params: { ...s.params }
+  }
+}
+
+onMounted(async () => {
+  try {
+    const list = await getEquipmentTypeDict()
+    typeOptions.value = list.map(item => {
+      const typeName = item.EquipmentTypeName || item.equipmentTypeName || '';
+      const typeId = item.EquipmentTypeId || item.equipmentTypeId || '';
+      const match = mapTypeNameToIconAndColor(typeName)
+      return {
+        k: match.k,
+        dbId: typeId,
+        label: typeName,
+        icon: match.icon,
+        color: match.color
+      }
+    })
+    if (typeOptions.value.length > 0) {
+      const motorOpt = typeOptions.value.find(t => t.k === 'motor')
+      if (motorOpt) {
+        d.value.typeDbId = motorOpt.dbId
+      }
+    }
+  } catch (err) {
+    console.error('加载设备一级类型字典失败:', err)
+  }
+
+  try {
+    const attrs = await getAttributeNames()
+    attributeOptions.value = (attrs || []).map(opt => ({
+      id: opt.Id || opt.id,
+      name: opt.Name || opt.name
+    }))
+  } catch (err) {
+    console.error('加载关键参数属性字典失败:', err)
+  }
+})
 
 function handleStart() {
   emit('start', [{
@@ -48,6 +128,7 @@ function handleStart() {
   }])
 }
 </script>
+
 
 <template>
   <div class="quick-entry float-in">
@@ -85,22 +166,16 @@ function handleStart() {
                    :value="d.model" @input="e => setF('model', e.target.value)" />
           </div>
 
-          <div class="field" style="grid-column:1/-1">
-            <label class="field-label">设备一级类型</label>
-            <div class="type-grid">
-              <div v-for="t in typeOptions" :key="t.k"
-                   :class="['type-card', d.typeK === t.k && 'active']"
-                   @click="setF('typeK', t.k)">
-                <AppIcon :name="t.icon" :size="18" :stroke="d.typeK === t.k ? 'var(--brand)' : t.color" />
-                <div>{{ t.label }}</div>
-              </div>
-            </div>
-          </div>
-
           <div class="field">
-            <label class="field-label">设备二级类型</label>
+            <label class="field-label">类型</label>
             <input class="input" placeholder="例如 中小型三相异步电动机"
-                   :value="d.type2" @input="e => setF('type2', e.target.value)" />
+                   :value="d.type2" 
+                   @input="e => handleTypeInput(e.target.value)" 
+                   @focus="e => e.target.select()"
+                   list="type-options" />
+            <datalist id="type-options">
+              <option v-for="opt in typeOptions" :key="opt.dbId" :value="opt.label" />
+            </datalist>
           </div>
           <div class="field">
             <label class="field-label">投运年份</label>
@@ -116,7 +191,10 @@ function handleStart() {
                 添加参数（如功率 / 流量 / 容量 等）
               </div>
               <div class="param-input-row">
-                <input class="input" placeholder="参数名" v-model="paramK" />
+                <input class="input" placeholder="参数名" v-model="paramK" @input="e => paramK = e.target.value" @change="e => paramK = e.target.value" @focus="e => e.target.select()" list="attr-options" style="width: 100%;" />
+                <datalist id="attr-options">
+                  <option v-for="opt in attributeOptions" :key="opt.id" :value="opt.name" />
+                </datalist>
                 <input class="input mono" placeholder="数值 + 单位（例如 22 kW）"
                        v-model="paramV" @keydown.enter="addParam" />
                 <button class="btn primary" style="padding:10px 14px;justify-content:center"
@@ -150,7 +228,7 @@ function handleStart() {
     <div class="preset-card">
       <h4><AppIcon name="sparkles" :size="14" stroke="var(--brand)" /> 预设案例</h4>
       <div class="ssub">点击下方任一预设案例可快速填充表单，方便快速演示判定流程。</div>
-      <div v-for="(s, i) in SAMPLES" :key="i" class="preset-item" @click="d = { ...s, params: { ...s.params } }">
+      <div v-for="(s, i) in SAMPLES" :key="i" class="preset-item" @click="handleSampleClick(s)">
         <div class="pn">{{ s.name }}</div>
         <div class="pmodel">{{ s.model }}</div>
         <div class="pyear">{{ DEV_TYPE_MAP[s.typeK]?.label }} · {{ s.year }} 年 · {{ Object.keys(s.params).length }} 项参数</div>
@@ -159,8 +237,9 @@ function handleStart() {
   </div>
 </template>
 
+
 <style scoped>
-.quick-entry { display: grid; grid-template-columns: 1fr 320px; gap: 18px; }
+.quick-entry { display: grid; grid-template-columns: 1fr 320px; gap: 18px; margin-top: 16px; }
 .quick-form .form-section { padding: 24px 28px; }
 .type-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
 .type-card { padding: 10px 6px; border-radius: 8px; background: #f8faff; border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: all 0.15s; color: var(--text-1); font-size: 11px; user-select: none; }
@@ -184,4 +263,6 @@ function handleStart() {
 .preset-item .pn { font-size: 12.5px; color: var(--text-0); font-weight: 500; }
 .preset-item .pmodel { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--brand-2); margin-top: 3px; }
 .preset-item .pyear { font-size: 10.5px; color: var(--text-2); margin-top: 2px; }
+
+
 </style>

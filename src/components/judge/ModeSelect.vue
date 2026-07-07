@@ -1,12 +1,14 @@
 <script setup>
 // ── components/judge/ModeSelect.vue ───────────────────────────────
+import { ref, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { SAMPLE_DEVICES } from '@/data/devices'
 import { RULES_LIB_INIT } from '@/data/rules'
+import { getEquipmentCount } from '@/api/devices'
 
 defineEmits(['pick'])
 
-const MODES = [
+const modes = ref([
   { k: 'existing', n: '从已录入设备选择', icon: 'list',   color: '#4dc9ff',
     d: '从设备总览中勾选若干台已录入设备发起判定，判定结果将刷新该设备的状态记录',
     stat: `已录入 ${SAMPLE_DEVICES.length} 台` },
@@ -16,8 +18,18 @@ const MODES = [
   { k: 'batch',    n: '批量导入判定',     icon: 'import', color: '#ff8a47',
     d: '上传 CSV / Excel 设备清单，对一批设备并行判定，导出结果报告',
     stat: '支持 CSV / Excel' },
-]
+])
+
 const enabledCount = RULES_LIB_INIT.filter(r => r.enabled !== false).length
+
+onMounted(async () => {
+  try {
+    const count = await getEquipmentCount()
+    modes.value[0].stat = `已录入 ${count} 台`
+  } catch (err) {
+    console.error('获取设备总数失败:', err)
+  }
+})
 </script>
 
 <template>
@@ -46,7 +58,7 @@ const enabledCount = RULES_LIB_INIT.filter(r => r.enabled !== false).length
 
     <div class="mode-grid">
       <div
-        v-for="(m, i) in MODES" :key="m.k"
+        v-for="(m, i) in modes" :key="m.k"
         class="mode-card"
         :style="{ '--cl': m.color }"
         @click="$emit('pick', m.k)"

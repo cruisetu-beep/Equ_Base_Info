@@ -149,6 +149,45 @@ export async function judgeEquipments(equIds, judgmentProcesses = ['1', '2', '3'
 }
 
 /**
+ * 单台设备页面录入数据快速判定（不保存到数据库）
+ * @param {Object} inputData 设备参数
+ */
+export async function judgeEquipmentQuick(inputData) {
+  if (USE_MOCK) {
+    const d = inputData;
+    const yearNum = parseInt(d.Year || d.year || '2010');
+    const isLowEff = yearNum <= 2012;
+    const status = isLowEff ? (yearNum <= 2008 ? '强制淘汰' : '限期淘汰') : '正常';
+    const hits = {};
+    if (isLowEff) {
+      hits['规则判定'] = [{
+        ruleId: 'MOCK-RULE-01',
+        ruleName: d.TypeName || d.typeName || '三级能效淘汰限制',
+        eliminationType: status,
+        matchMethod: '型号前缀+投运年份约束判定',
+        judgmentCriteria: `【型号匹配】：命中 ${d.Model || d.model} 系列，【年份匹配】：投运年份 ${d.Year || d.year} 小于等于 2012 年`,
+        desc: '依据标准：GB18613-2012 能效限定标准。'
+      }];
+    }
+    return {
+      equId: `quick-${Date.now()}`,
+      equipmentName: d.EquipmentName || d.name,
+      model: d.Model || d.model,
+      year: d.Year || d.year,
+      power: d.Power || d.power,
+      manufactureDate: d.ManufactureDate || (d.Year ? `${d.Year}-06-01` : '2010-06-01'),
+      judgeStatus: status,
+      hits,
+      flowSteps: { '规则判定': [] }
+    };
+  }
+
+  const res = await axios.post(`${API_PREFIX}/judgeEquipmentQuick`, inputData);
+  return res.data.data;
+}
+
+
+/**
  * 保存/确认淘汰判定结果
  * @param {Array<Object>} items 保存明细列表
  */

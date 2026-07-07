@@ -3,7 +3,7 @@
 import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import RuleHitMini from './RuleHitMini.vue'
-import { judgeEquipments } from '@/api/judge'
+import { judgeEquipments, judgeEquipmentQuick } from '@/api/judge'
 import { DEV_TYPE_MAP } from '@/data/devices'
 import { JUDGE_STATUS_MAP } from '@/data/rules'
 import { tokenizeJudgeLog } from '@/utils/logHelpers'
@@ -57,7 +57,7 @@ async function runDeviceJudge(index) {
   
   const dev = props.devices[index]
   
-  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】开始校验设备数据：${dev.name || dev.equipmentName || '未命名'} (编号: ${dev.code || dev.equId || `TEMP-${index}`})` })
+  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】开始校验设备 data：${dev.name || dev.equipmentName || '未命名'} (编号: ${dev.code || dev.equId || `TEMP-${index}`})` })
   logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】类型：${dev.typeName || dev.type2 || '—'}，型号：${dev.model || '—'}` })
   
   // 模拟极短本地数据校验
@@ -73,12 +73,31 @@ async function runDeviceJudge(index) {
     // 优先从后台预加载的缓存中直接提取，使接口请求与动画彻底解耦
     let apiRes = fetchedData.value[equId]
     if (!apiRes) {
-      const res = await judgeEquipments([equId], props.processes)
-      if (!res || res.length === 0) {
-        throw new Error("判定接口未返回有效数据")
+      const isQuick = !dev.equId || String(equId).startsWith('quick-');
+      if (isQuick) {
+        const attributes = Object.entries(dev.params || {}).map(([key, value]) => ({ key, value }));
+        const brand = dev.manufacturer || dev.brand || dev.params?.['品牌'] || dev.params?.['生产厂家'] || '';
+        const power = dev.power || dev.params?.['功率'] || dev.params?.['额定功率'] || '';
+        const payload = {
+          EquipmentTypeId: dev.typeDbId || dev.typeK,
+          EquipmentName: dev.name || dev.equipmentName,
+          Model: dev.model,
+          Brand: brand,
+          Year: dev.year,
+          Power: power,
+          ManufactureDate: dev.manufactureDate || (dev.year ? `${dev.year}-06-01` : ''),
+          Attributes: attributes,
+          JudgmentProcesses: props.processes
+        };
+        apiRes = await judgeEquipmentQuick(payload);
+      } else {
+        const res = await judgeEquipments([equId], props.processes);
+        if (!res || res.length === 0) {
+          throw new Error("判定接口未返回有效数据")
+        }
+        apiRes = res[0];
       }
-      fetchedData.value[equId] = res[0]
-      apiRes = res[0]
+      fetchedData.value[equId] = apiRes;
     }
     
     logs.value.push({ ts: tsNow(), lv: 'ok', msg: `【OK】规则库云端判定服务响应成功` })
@@ -225,12 +244,33 @@ onMounted(() => {
     props.devices.forEach(async (dev) => {
       try {
         const equId = dev.equId || dev.id
-        const res = await judgeEquipments([equId], props.processes)
-        if (res && res.length > 0) {
-          fetchedData.value[equId] = res[0]
+        const isQuick = !dev.equId || String(equId).startsWith('quick-');
+        let res;
+        if (isQuick) {
+          const attributes = Object.entries(dev.params || {}).map(([key, value]) => ({ key, value }));
+          const brand = dev.manufacturer || dev.brand || dev.params?.['品牌'] || dev.params?.['生产厂家'] || '';
+          const power = dev.power || dev.params?.['功率'] || dev.params?.['额定功率'] || '';
+          const payload = {
+            EquipmentTypeId: dev.typeDbId || dev.typeK,
+            EquipmentName: dev.name || dev.equipmentName,
+            Model: dev.model,
+            Brand: brand,
+            Year: dev.year,
+            Power: power,
+            ManufactureDate: dev.manufactureDate || (dev.year ? `${dev.year}-06-01` : ''),
+            Attributes: attributes,
+            JudgmentProcesses: props.processes
+          };
+          res = await judgeEquipmentQuick(payload);
+        } else {
+          const temp = await judgeEquipments([equId], props.processes);
+          res = temp && temp.length > 0 ? temp[0] : null;
+        }
+        if (res) {
+          fetchedData.value[equId] = res;
         }
       } catch (e) {
-        console.error(`后台静默预拉取接口出错: ${dev.equId}`, e)
+        console.error(`后台静默预拉取接口出错: ${dev.equId || dev.id}`, e)
       }
     })
 

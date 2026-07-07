@@ -21,6 +21,18 @@ export async function getDevices() {
 }
 
 /**
+ * 获取设备总数量
+ * @returns {Promise<number>}
+ */
+export async function getEquipmentCount() {
+  if (USE_MOCK) {
+    await delay(100)
+    return SAMPLE_DEVICES.length
+  }
+  return axios.get(`${BASE_URL}/Equipment/getEquipmentCount`).then(r => r.data.data || r.data)
+}
+
+/**
  * 获取单台设备详情
  * @param {string} id
  * @returns {Promise<Object>}

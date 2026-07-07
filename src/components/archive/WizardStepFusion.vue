@@ -179,10 +179,13 @@ const THEMES = [
             <span v-if="hasDataLink" class="green-dot"></span>
             {{ hasDataLink ? '实时运行数据已接入' : '暂未配置数据接入' }}
           </div>
-          <div class="accent-main" :style="{ color: THEMES[3].accentText, fontFamily: 'JetBrains Mono, monospace' }">
-            {{ hasDataLink ? dataLabel : '—' }}
+          <div class="accent-main" :style="{ color: THEMES[3].accentText }">
+            {{ hasDataLink ? (data.dataNodeName || data.dataNodeId) : '—' }}
           </div>
-          <div class="accent-sub">{{ hasDataLink ? '已绑定数据模型节点' : '可在运行数据接入步骤配置' }}</div>
+          <div class="accent-sub" v-if="hasDataLink">
+            已绑定模型节点：<span>{{ data.dataModelName || data.dataModelId }}</span>
+          </div>
+          <div class="accent-sub" v-else>可在运行数据接入步骤配置</div>
         </div>
       </div>
 

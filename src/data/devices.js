@@ -9,7 +9,7 @@ export const DEV_TYPES = [
   { k: "transformer", label: "变压器",     icon: "transformer", color: "#a799ff" },
   { k: "boiler",      label: "工业锅炉",   icon: "boiler",      color: "#ff8a47" },
   { k: "compressor",  label: "压缩机",     icon: "compressor",  color: "#ffb547" },
-  { k: "chiller",     label: "制冷设备",   icon: "sun",         color: "#7be9d4" },
+  { k: "chiller",     label: "制冷设备",   icon: "snowflake",   color: "#2cb9cb" },
   { k: "welder",      label: "电弧焊机",   icon: "bolt",        color: "#ff6b8a" },
   { k: "resistor",    label: "电阻炉",     icon: "factory",     color: "#ff8a47" },
   { k: "appliance",   label: "电器",       icon: "plug",        color: "#5bb8ff" },
@@ -25,13 +25,54 @@ export const DEV_TYPE_MAP = Object.fromEntries(DEV_TYPES.map(d => [d.k, d]))
 
 export function parseTypeK(type2) {
   if (!type2) return "other"
-  if (type2.includes("电机") || type2.includes("电动机")) return "motor"
-  if (type2.includes("风机")) return "fan"
-  if (type2.includes("泵")) return "pump"
-  if (type2.includes("变压器")) return "transformer"
-  if (type2.includes("锅炉")) return "boiler"
-  if (type2.includes("压缩机")) return "compressor"
-  if (type2.includes("冷") || type2.includes("热泵")) return "chiller"
+  const name = type2.toLowerCase()
+  
+  if (name.includes("电机") || name.includes("电动机") || name.includes("马达")) {
+    return "motor"
+  }
+  if (name.includes("风机") || name.includes("鼓风机") || name.includes("引风机") || name.includes("通风机") || name.includes("风幕") || name.includes("送风") || name.includes("排风")) {
+    return "fan"
+  }
+  if (name.includes("泵") || name.includes("水泵") || name.includes("油泵") || name.includes("潜水") || name.includes("排污") || name.includes("循环") || name.includes("给水") || name.includes("冷冻泵") || name.includes("采暖泵")) {
+    return "pump"
+  }
+  if (name.includes("变压器") || name.includes("主变") || name.includes("配变") || name.includes("整流") || name.includes("互感")) {
+    return "transformer"
+  }
+  if (name.includes("锅炉") || name.includes("蒸汽炉") || name.includes("热水炉") || name.includes("熔炉")) {
+    return "boiler"
+  }
+  if (name.includes("压缩机") || name.includes("气泵") || name.includes("压风")) {
+    return "compressor"
+  }
+  if (name.includes("冷") || name.includes("热泵") || name.includes("制冷") || name.includes("空调") || name.includes("冰柜") || name.includes("vrv") || name.includes("多联机") || name.includes("暖通") || name.includes("冷柜")) {
+    return "chiller"
+  }
+  if (name.includes("焊") || name.includes("切割机") || name.includes("熔接")) {
+    return "welder"
+  }
+  if (name.includes("电阻炉") || name.includes("电炉") || name.includes("加热炉") || name.includes("盐浴") || name.includes("烘箱") || name.includes("烘干")) {
+    return "resistor"
+  }
+  if (name.includes("电器") || name.includes("开关") || name.includes("照明") || name.includes("插座") || name.includes("配电") || name.includes("充电桩")) {
+    return "appliance"
+  }
+  if (name.includes("机床") || name.includes("车床") || name.includes("铣床") || name.includes("磨床") || name.includes("钻床") || name.includes("数控") || name.includes("切削") || name.includes("加工中心")) {
+    return "machine"
+  }
+  if (name.includes("锻压") || name.includes("冲床") || name.includes("压力机") || name.includes("液压机") || name.includes("剪板") || name.includes("折弯")) {
+    return "forge"
+  }
+  if (name.includes("热处理") || name.includes("淬火") || name.includes("退火") || name.includes("回火") || name.includes("渗碳")) {
+    return "heat"
+  }
+  if (name.includes("阀") || name.includes("阀门")) {
+    return "valve"
+  }
+  if (name.includes("柴油") || name.includes("发电机") || name.includes("内燃机") || name.includes("引擎") || name.includes("发动机")) {
+    return "diesel"
+  }
+  
   return "other"
 }
 

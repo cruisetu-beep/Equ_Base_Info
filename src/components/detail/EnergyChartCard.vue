@@ -9,6 +9,7 @@ import AppIcon from '@/components/common/AppIcon.vue'
 
 const props = defineProps({
   energyData: { type: Array, default: () => [] },
+  todayKwh: { type: Number, default: 0 },
   monthKwh: { type: Number, default: 0 },
   yearKwh: { type: Number, default: 0 },
   deviceName: { type: String, default: '' },
@@ -18,26 +19,19 @@ const chartRef = ref(null)
 let chart = null
 
 // 统计快照
-const totalKwh = computed(() =>
-  props.energyData.reduce((s, d) => s + d.kwh, 0).toFixed(1)
-)
-// 本月：今日 × 当月已过天数（优先使用接口传入真实数据）
-const monthKwh = computed(() => {
-  if (props.monthKwh > 0) {
-    return props.monthKwh.toFixed(1)
+const totalKwh = computed(() => {
+  if (props.todayKwh > 0) {
+    return props.todayKwh.toFixed(1)
   }
-  const day = new Date().getDate()
-  return (parseFloat(totalKwh.value) * day).toFixed(1)
+  return props.energyData.reduce((s, d) => s + d.kwh, 0).toFixed(1)
 })
-// 今年：今日 × 当年已过天数（优先使用接口传入真实数据）
+// 本月能耗：直接显示接口传入的真实数据，不进行任何公式估算
+const monthKwh = computed(() => {
+  return (props.monthKwh || 0).toFixed(1)
+})
+// 今年能耗：直接显示接口传入的真实数据，不进行任何公式估算
 const yearKwh = computed(() => {
-  if (props.yearKwh > 0) {
-    return props.yearKwh.toFixed(1)
-  }
-  const now = new Date()
-  const start = new Date(now.getFullYear(), 0, 0)
-  const dayOfYear = Math.floor((now - start) / 86400000)
-  return (parseFloat(totalKwh.value) * dayOfYear).toFixed(1)
+  return (props.yearKwh || 0).toFixed(1)
 })
 
 // 小时聚合（96条 → 24条，便于可视化）

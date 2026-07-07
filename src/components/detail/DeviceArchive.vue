@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import { BASE_URL } from '@/api/config'
 
 const props = defineProps({
   device: { type: Object, required: true },
@@ -18,6 +19,7 @@ const previewImgUrl = ref('')
 const previewImgName = ref('')
 const previewImgId = ref('')
 const previewImgDownloadUrl = ref('')
+const imgLoading = ref(false)
 
 const docs = computed(() => {
   if (props.device.files && props.device.files.length > 0) {
@@ -64,18 +66,20 @@ const setPreviewImage = (d) => {
   previewImgName.value = d.name
   previewImgId.value = d.id
   if (d.id) {
-    const url = `https://www.ttbems.com:14442/CarbonData4AIAgentAPI/api/Equipment/getFile?fileId=${d.id}`
+    imgLoading.value = true
+    const url = `${BASE_URL}/Equipment/getFile?fileId=${d.id}`
     previewImgUrl.value = url
     previewImgDownloadUrl.value = url
   } else {
     previewImgUrl.value = ''
     previewImgDownloadUrl.value = ''
+    imgLoading.value = false
   }
 }
 
 const handlePreview = (f) => {
   if (f.id) {
-    const url = `https://www.ttbems.com:14442/CarbonData4AIAgentAPI/api/Equipment/getFile?fileId=${f.id}`
+    const url = `${BASE_URL}/Equipment/getFile?fileId=${f.id}`
     if (['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(f.ext)) {
       setPreviewImage(f)
       showPreviewModal.value = true
@@ -106,7 +110,7 @@ const triggerDownload = async (url, filename) => {
 
 const handleDownload = (f) => {
   if (f.id) {
-    const url = `https://www.ttbems.com:14442/CarbonData4AIAgentAPI/api/Equipment/getFile?fileId=${f.id}`
+    const url = `${BASE_URL}/Equipment/getFile?fileId=${f.id}`
     triggerDownload(url, f.name)
   }
 }
@@ -147,11 +151,32 @@ const handleDownload = (f) => {
           </button>
           
           <div class="da-lightbox-main">
-            <img v-if="previewImgUrl" :src="previewImgUrl" :alt="previewImgName" class="da-lightbox-img" />
-            <div v-else class="da-lightbox-noimg">暂无可用预览图片</div>
+            <div class="da-lightbox-img-wrap">
+              <!-- 骨架屏 / Loading 旋转指示器（内嵌静止文档图标） -->
+              <div v-if="imgLoading" class="da-lightbox-loading">
+                <div style="position:relative; width:36px; height:36px; display:grid; place-items:center">
+                  <div class="ocr-spinner" style="width:36px; height:36px; border-width:3px; border-top-color:#fff; position:absolute"></div>
+                  <AppIcon name="doc" :size="13" stroke="rgba(255,255,255,0.9)" style="position:absolute" />
+                </div>
+                <div style="margin-top:12px; color:rgba(255,255,255,0.85); font-size:12.5px; font-weight:500">正在加载...</div>
+              </div>
+              <img 
+                v-if="previewImgUrl" 
+                :src="previewImgUrl" 
+                :alt="previewImgName" 
+                class="da-lightbox-img" 
+                :style="{ opacity: imgLoading ? 0 : 1 }"
+                @load="imgLoading = false" 
+                @error="imgLoading = false" 
+              />
+              <div v-else class="da-lightbox-noimg">暂无可用预览图片</div>
+            </div>
             
             <div class="da-lightbox-meta">
-              <span class="da-lightbox-title" :title="previewImgName">{{ previewImgName }}</span>
+              <span class="da-lightbox-title" :title="previewImgName" style="display:flex; align-items:center; gap:6px; min-width:0; flex:1">
+                <AppIcon name="doc" :size="13" stroke="rgba(255,255,255,0.85)" />
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ previewImgName }}</span>
+              </span>
               <button v-if="previewImgDownloadUrl" class="da-lightbox-dl-btn" title="下载此图片" @click.stop="handleDownload({ id: previewImgId, name: previewImgName })">
                 <AppIcon name="download" :size="12" stroke="#fff" /> 下载
               </button>
@@ -248,11 +273,23 @@ const handleDownload = (f) => {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
 }
 
+.da-lightbox-img-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  min-width: 480px;
+  max-width: 80vw;
+  max-height: 70vh;
+}
+
 .da-lightbox-img {
   max-width: 80vw; max-height: 70vh; border-radius: 8px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   object-fit: contain; background: #1a2233;
   border: 1px solid rgba(255,255,255,0.05);
+  transition: opacity 0.2s ease;
 }
 .da-lightbox-noimg {
   width: 300px; height: 200px; border-radius: 8px;
@@ -289,4 +326,26 @@ const handleDownload = (f) => {
 /* Fade 动画 */
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+
+.da-lightbox-loading {
+  position: absolute;
+  top: calc(50% - 20px);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+}
+
+.ocr-spinner {
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #ffffff;
+  animation: spin-arch 0.8s linear infinite;
+  box-sizing: border-box;
+}
+@keyframes spin-arch {
+  to { transform: rotate(360deg); }
+}
 </style>

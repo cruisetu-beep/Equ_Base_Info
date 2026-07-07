@@ -3,8 +3,20 @@ import { ref } from 'vue'
 import axios from 'axios'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { parseTypeK } from '@/data/devices'
+import { getAttributeNames } from '@/api/devices'
 
 const emit = defineEmits(['recognized'])
+
+const attributeDict = ref([])
+async function loadAttributeDict() {
+  try {
+    const dict = await getAttributeNames()
+    attributeDict.value = dict || []
+  } catch (e) {
+    console.error('OCR组件获取属性字典异常:', e)
+  }
+}
+loadAttributeDict()
 
 // 状态：idle | loading | done | fail
 const phase      = ref('idle')
@@ -206,7 +218,12 @@ async function importParams() {
       }
     }
 
-    // 3. 构建参数列表：使用 dataList (rawDataList)，并在最下端追加入能效等级（能效等级 id 在字典中为 42）
+    // 3. 动态从字典表缓存中匹配“能效等级(国标)”的属性 ID 与展示名称，避免任何写死硬编码
+    const dictMatched = attributeDict.value.find(item => item.name && item.name.includes('能效等级'))
+    const energyAttrId = dictMatched ? dictMatched.id : null
+    const energyAttrName = dictMatched ? dictMatched.name : '能效等级(国标)'
+
+    // 构建参数列表：使用 dataList (rawDataList)，并在最下端追加入能效等级
     const finalParams = rawDataList.value.map(p => ({
       id: p.id || null,
       k: p.k,
@@ -214,8 +231,8 @@ async function importParams() {
     }))
 
     finalParams.push({
-      id: 42,
-      k: '能效等级(国标)',
+      id: energyAttrId,
+      k: energyAttrName,
       v: energyLevel
     })
 
@@ -224,7 +241,12 @@ async function importParams() {
     emit('recognized', ocrPackage.value)
   } catch (error) {
     console.error('能效判定接口调用异常:', error)
-    // 接口调用失败时也继续导入，但将能效等级设为 '-'，同样需要加上 id: 42
+    
+    const dictMatched = attributeDict.value.find(item => item.name && item.name.includes('能效等级'))
+    const energyAttrId = dictMatched ? dictMatched.id : null
+    const energyAttrName = dictMatched ? dictMatched.name : '能效等级(国标)'
+
+    // 接口调用失败时也继续导入，但将能效等级设为 '-'
     const finalParams = rawDataList.value.map(p => ({
       id: p.id || null,
       k: p.k,
@@ -232,8 +254,8 @@ async function importParams() {
     }))
 
     finalParams.push({
-      id: 42,
-      k: '能效等级(国标)',
+      id: energyAttrId,
+      k: energyAttrName,
       v: '-'
     })
 

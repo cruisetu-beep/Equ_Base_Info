@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { RULES_LIB_INIT } from '@/data/rules'
 import { getRuleDetail } from '@/api/rules'
@@ -39,14 +39,189 @@ const handleViewRule = async () => {
   }
 }
 
-const elimStyle = computed(() => {
-  const t = props.device.eliminationType || props.device.level || ''
-  if (t.includes('强制')) return { color: '#e0394f', bg: 'rgba(224,57,79,0.07)', border: 'rgba(224,57,79,0.28)', label: '强制淘汰' }
-  if (t.includes('限期')) return { color: '#ea8c2e', bg: 'rgba(234,140,46,0.07)', border: 'rgba(234,140,46,0.28)', label: '限期淘汰' }
-  if (t.includes('低效')) return { color: '#d4a017', bg: 'rgba(212,160,23,0.07)', border: 'rgba(212,160,23,0.28)', label: '低效设备' }
-  return { color: 'var(--text-2)', bg: '#f8faff', border: 'var(--line)', label: '—' }
+function getRecordStyle(rec) {
+  const t = (rec.eliminationType || '').trim()
+  if (t === '正常') {
+    return { color: 'var(--ok)', bg: 'rgba(43,217,168,0.03)', border: 'rgba(43,217,168,0.18)', label: '正常运行', icon: 'check' }
+  } else if (t === '待判定') {
+    return { color: 'var(--warn)', bg: 'rgba(234,140,46,0.03)', border: 'rgba(234,140,46,0.18)', label: '待判定', icon: 'info' }
+  } else if (t.includes('低效') || t.includes('落后')) {
+    return { color: '#d4a017', bg: 'rgba(212,160,23,0.03)', border: 'rgba(212,160,23,0.18)', label: rec.eliminationType || '低效设备', icon: 'warn' }
+  } else {
+    return { color: '#e0394f', bg: 'rgba(224,57,79,0.03)', border: 'rgba(224,57,79,0.18)', label: rec.eliminationType || '淘汰设备', icon: 'ban' }
+  }
+}
+
+const records = computed(() => {
+  const originRecords = props.device.eliminationRecords
+  if (originRecords && originRecords.length > 0) {
+    return originRecords.map(x => {
+      const ruleId = x.ruleId || x.RuleId || ''
+      const matchRule = ruleId ? RULES_LIB_INIT.find(r => r.ruleId === ruleId) : null
+      
+      const elimType = x.eliminationType || x.EliminationType || '正常'
+      
+      // 根据 eliminationType 快速分类 status 样式控制字段 (只要不是正常就是淘汰)
+      const status = elimType.trim() === '正常' ? 'normal' : 'phaseout'
+
+      let process = x.judgmentProcess || x.JudgmentProcess || ''
+      if (!process) {
+        const method = x.matchMethod || x.MatchMethod || ''
+        const ruleId = x.ruleId || x.RuleId
+        if (method.includes('能效') || method.includes('能耗')) {
+          process = '能效判定'
+        } else if (method.includes('AI') || method.includes('智能')) {
+          process = 'AI判定'
+        } else if (ruleId) {
+          process = '规则判定'
+        } else {
+          process = '人工判定'
+        }
+      }
+
+      let dateStr = x.judgmentDate || x.JudgmentDate || '—'
+      if (dateStr && dateStr !== '—') {
+        try {
+          const d = new Date(dateStr)
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear()
+            const m = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            dateStr = `${y}-${m}-${day}`
+          }
+        } catch (e) {
+          console.error('日期解析错误:', e)
+        }
+      }
+
+      let ruleBatch = x.ruleBatch || x.RuleBatch || ''
+      if (!ruleBatch && matchRule) {
+        ruleBatch = matchRule.batch
+      }
+      if (!ruleBatch && (x.reason || x.judgmentCriteria)) {
+        const criteriaText = x.reason || x.judgmentCriteria || ''
+        const m = criteriaText.match(/(?:批次[:：]\s*)([^\,\，\s]+)/)
+        if (m) ruleBatch = m[1]
+      }
+
+      let ruleDeadline = x.ruleDeadline || x.RuleDeadline || ''
+      if (!ruleDeadline && matchRule) {
+        ruleDeadline = matchRule.deadline
+      }
+      if (!ruleDeadline && (x.reason || x.desc)) {
+        const descText = x.reason || x.desc || ''
+        const m = descText.match(/(?:截止淘汰日期|截止日期)[:：]\s*(\d{4}-\d{2}-\d{2})/)
+        if (m) ruleDeadline = m[1]
+      }
+
+      return {
+        basisId: x.basisId || x.BasisId || 0,
+        judgmentProcess: process,
+        eliminationType: elimType,
+        status: status,
+        reason: x.reason || x.judgmentCriteria || x.desc || '',
+        judgmentBy: x.judgmentBy || x.JudgmentBy || '',
+        judgmentDate: dateStr,
+        matchMethod: x.matchMethod || x.MatchMethod || '',
+        ruleId: ruleId,
+        ruleBatch: ruleBatch,
+        ruleDeadline: ruleDeadline,
+        isRealRule: process === '规则判定' && !!ruleId
+      }
+    })
+  }
+
+  return [
+    {
+      judgmentProcess: "待判定",
+      eliminationType: "待判定",
+      reason: '该设备暂未发起能效淘汰判定，或运行数据未齐全，暂无已保存的判定记录。',
+      judgmentBy: '—',
+      judgmentDate: '—',
+      matchMethod: '—',
+      ruleId: '',
+      ruleBatch: '',
+      ruleDeadline: '',
+      isRealRule: false
+    }
+  ]
 })
 
+const handleViewRecordRule = async (ruleId) => {
+  if (!ruleId) return
+  loadingRule.value = true
+  try {
+    const res = await getRuleDetail(ruleId)
+    if (res) {
+      selectedRule.value = res
+      showRuleModal.value = true
+    } else {
+      alert('未找到该规则的详细配置')
+    }
+  } catch (err) {
+    console.error('加载规则详情失败:', err)
+    alert('加载规则详情失败，请重试')
+  } finally {
+    loadingRule.value = false
+  }
+}
+
+const activeProcess = ref("规则判定")
+watch(records, (newRecs) => {
+  if (newRecs && newRecs.length > 0) {
+    if (!newRecs.some(r => r.judgmentProcess === activeProcess.value)) {
+      activeProcess.value = newRecs[0].judgmentProcess
+    }
+  }
+}, { immediate: true })
+
+const activeRecord = computed(() => {
+  return records.value.find(r => r.judgmentProcess === activeProcess.value) || records.value[0]
+})
+
+function getTabStyle(rec, isActive) {
+  const t = (rec.eliminationType || '').trim()
+  let color = 'var(--ok)'
+  let bg = 'rgba(43,217,168,0.03)'
+  let border = 'rgba(43,217,168,0.22)'
+  
+  if (t === '待判定') {
+    color = 'var(--warn)'
+    bg = 'rgba(234,140,46,0.03)'
+    border = 'rgba(234,140,46,0.22)'
+  } else if (t.includes('低效') || t.includes('落后')) {
+    color = '#d4a017'
+    bg = 'rgba(212,160,23,0.04)'
+    border = 'rgba(212,160,23,0.25)'
+  } else if (t !== '正常') {
+    color = '#e0394f'
+    bg = 'rgba(224,57,79,0.04)'
+    border = 'rgba(224,57,79,0.25)'
+  }
+  
+  if (isActive) {
+    let activeBg = 'rgba(43,217,168,0.1)'
+    if (t === '待判定') activeBg = 'rgba(234,140,46,0.1)'
+    else if (t.includes('低效') || t.includes('落后')) activeBg = 'rgba(212,160,23,0.1)'
+    else if (t !== '正常') activeBg = 'rgba(224,57,79,0.1)'
+
+    return {
+      color,
+      borderColor: color,
+      background: activeBg,
+      fontWeight: '700',
+      transform: 'scale(1.02)'
+    }
+  } else {
+    return {
+      color,
+      borderColor: border,
+      background: bg,
+      fontWeight: '500',
+      opacity: '0.85'
+    }
+  }
+}
 </script>
 
 <template>
@@ -56,30 +231,40 @@ const elimStyle = computed(() => {
       <h3>淘汰判定详情</h3>
     </div>
 
-    <!-- 正常运行 -->
-    <div v-if="device.status === 'normal'" class="eb-empty ok">
+    <!-- 判定流程切换药丸 -->
+    <div class="proc-tabs" style="display:flex; gap:10px; margin-bottom:16px;">
+      <button 
+        v-for="rec in records" 
+        :key="rec.judgmentProcess"
+        class="proc-tab"
+        :style="getTabStyle(rec, activeProcess === rec.judgmentProcess)"
+        @click="activeProcess = rec.judgmentProcess"
+      >
+        {{ rec.judgmentProcess }}
+        <span v-if="rec.judgmentProcess !== '待判定'">
+          <template v-if="(rec.eliminationType || '').trim() === '正常'">(正常)</template>
+          <template v-else-if="(rec.eliminationType || '').includes('低效') || (rec.eliminationType || '').includes('落后')">(低效)</template>
+          <template v-else>(淘汰)</template>
+        </span>
+      </button>
+    </div>
+    <!-- 正常运行 (如果当前选中的流程结果是 normal) -->
+    <!-- 正常运行 (如果当前选中的流程结果是正常) -->
+    <div v-if="activeRecord.eliminationType.trim() === '正常'" class="eb-empty ok">
       <AppIcon name="check" :size="28" stroke="var(--ok)" />
       <div class="h">设备能效合格</div>
-      <div class="s">未命中任何淘汰规则，建议保持当前运行状态</div>
+      <div class="s">{{ activeRecord.reason || '该设备各项指标运行正常，未被纳入任何落后淘汰设备目录。' }}</div>
     </div>
 
-    <!-- 待判定 -->
-    <div v-else-if="device.status === 'pending'" class="eb-empty">
-      <AppIcon name="info" :size="28" stroke="var(--warn)" />
-      <div class="h">待判定</div>
-      <div class="s">{{ device.reason || '运行数据未齐全，暂无法完成判定' }}</div>
-    </div>
-
-    <!-- 已判定 -->
+    <!-- 已判定（淘汰） -->
     <template v-else>
-
       <!-- ① 结论横幅 -->
-      <div class="elim-banner" :style="{ background: elimStyle.bg, borderColor: elimStyle.border }">
-        <div class="elim-banner-type" :style="{ color: elimStyle.color }">
-          <AppIcon name="ban" :size="15" :stroke="elimStyle.color" />
-          {{ elimStyle.label }}
+      <div class="elim-banner" :style="{ background: getRecordStyle(activeRecord).bg, borderColor: getRecordStyle(activeRecord).border }">
+        <div class="elim-banner-type" :style="{ color: getRecordStyle(activeRecord).color }">
+          <AppIcon name="ban" :size="15" :stroke="getRecordStyle(activeRecord).color" />
+          {{ getRecordStyle(activeRecord).label }}
         </div>
-        <div class="elim-banner-desc">{{ device.reason || '—' }}</div>
+        <div class="elim-banner-desc">{{ activeRecord.reason || '—' }}</div>
       </div>
 
       <!-- ② 判定记录 -->
@@ -88,44 +273,45 @@ const elimStyle = computed(() => {
         <div class="eb-rows">
           <div class="eb-row">
             <span class="l">淘汰类型</span>
-            <span class="v bold" :style="{ color: elimStyle.color }">{{ elimStyle.label }}</span>
+            <span class="v bold" :style="{ color: getRecordStyle(activeRecord).color }">{{ getRecordStyle(activeRecord).label }}</span>
           </div>
           <div class="eb-row">
             <span class="l">匹配规则</span>
-            <span class="v">{{ device.matchMethod}}</span>
+            <span class="v">{{ activeRecord.matchMethod || '—' }}</span>
           </div>
-          <div class="eb-row" v-if="device.ruleBatch || matchedRule?.batch">
+          <div class="eb-row" v-if="activeRecord.ruleBatch">
             <span class="l">淘汰批次</span>
-            <span class="v mono">{{ device.ruleBatch || matchedRule?.batch }}</span>
+            <span class="v mono">{{ activeRecord.ruleBatch }}</span>
           </div>
-          <div class="eb-row" v-if="device.ruleId || device.ruleHit">
+          <div class="eb-row" v-if="activeRecord.ruleId">
             <span class="l">命中规则</span>
             <span class="v rule-inline">
-              <span class="rule-id">{{ device.ruleId || device.ruleHit }}</span>
-              <button class="view-btn" @click="handleViewRule" :disabled="loadingRule">
+              <span class="rule-id">{{ activeRecord.ruleId }}</span>
+              <button v-if="activeRecord.isRealRule" class="view-btn" @click="handleViewRecordRule(activeRecord.ruleId)" :disabled="loadingRule">
                 <AppIcon name="search" :size="11" /> {{ loadingRule ? '加载中...' : '查看' }}
               </button>
             </span>
           </div>
-          <div class="eb-row" v-if="device.ruleDeadline || matchedRule?.deadline">
+          <div class="eb-row" v-if="activeRecord.ruleDeadline">
             <span class="l">截止日期</span>
-            <span class="v mono" style="color:var(--eol-red)">{{ device.ruleDeadline || matchedRule?.deadline }}</span>
+            <span class="v mono" style="color:var(--eol-red)">{{ activeRecord.ruleDeadline }}</span>
           </div>
           <div class="eb-row">
             <span class="l">判定日期</span>
-            <span class="v mono">{{ device.judgmentDate || device.updated?.slice(0, 10) || '—' }}</span>
+            <span class="v mono">{{ activeRecord.judgmentDate || '—' }}</span>
           </div>
           <div class="eb-row">
             <span class="l">判定人</span>
-            <span class="v">{{ device.judgmentBy || 'SYSTEM' }}</span>
+            <span class="v">{{ activeRecord.judgmentBy || '—' }}</span>
           </div>
         </div>
       </div>
-
-      <!-- ③ 设备档案 -->
-      <DeviceArchive :device="device" />
-
     </template>
+
+    <!-- ③ 设备档案 -->
+    <div style="margin-top: 24px;">
+      <DeviceArchive :device="props.device" />
+    </div>
 
     <!-- 规则详情弹窗 -->
     <RuleDetailModal :rule="showRuleModal ? selectedRule : null" @close="showRuleModal = false" />
@@ -205,6 +391,81 @@ const elimStyle = computed(() => {
   border-radius: 5px; cursor: pointer; flex-shrink: 0;
 }
 .view-btn:hover { border-color: var(--brand); background: rgba(47,127,255,0.06); }
+
+/* 流程卡片列表 */
+.proc-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.proc-card {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+.proc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.proc-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.l-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+.r-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.proc-desc {
+  font-size: 12px;
+  color: var(--text-1);
+  line-height: 1.6;
+}
+
+/* 切换选项卡 Tabs */
+.proc-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.proc-tab {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.proc-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+}
+.proc-tab:active {
+  transform: translateY(0);
+}
 
 
 </style>

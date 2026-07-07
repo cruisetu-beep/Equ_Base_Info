@@ -27,10 +27,13 @@ const breadcrumb = computed(() => {
   return SUBTITLE_MAP[tab.value] || []
 })
 
+const initialJudgeDevices = ref([])
+
 function switchTab(newTab) {
   tab.value = newTab
   selectedDeviceId.value = null // 切换主导航时清空详情页状态
   jumpToRuleId.value = null
+  initialJudgeDevices.value = []
 }
 
 function openDeviceDetail(id) {
@@ -41,6 +44,12 @@ function viewRuleInLibrary(ruleId) {
   jumpToRuleId.value = ruleId
   selectedDeviceId.value = null
   tab.value = 'rules'
+}
+
+function startDeviceJudge(device) {
+  initialJudgeDevices.value = [device]
+  selectedDeviceId.value = null
+  tab.value = 'judge'
 }
 </script>
 
@@ -54,7 +63,7 @@ function viewRuleInLibrary(ruleId) {
       :device-id="selectedDeviceId"
       @back="selectedDeviceId = null"
       @edit="selectedDeviceId = null /* TODO: 接入编辑流程 */"
-      @rejudge="selectedDeviceId = null /* TODO: 接入判定流程 */"
+      @rejudge="startDeviceJudge"
       @view-rule="viewRuleInLibrary"
     />
     <OverviewView
@@ -69,6 +78,7 @@ function viewRuleInLibrary(ruleId) {
     />
     <JudgeView
       v-else-if="tab === 'judge'"
+      :initial-devices="initialJudgeDevices"
     />
     <RulesView
       v-else-if="tab === 'rules'"

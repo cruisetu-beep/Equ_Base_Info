@@ -14,6 +14,15 @@ const emit = defineEmits(['exit'])
 
 const STEP_COUNT = 4
 
+const CAT_DESC_MAP = {
+  device: '设备照片',
+  site: '现场照片',
+  archive: '设备档案',
+  maintain: '维保记录',
+  monitor: '监测报告',
+  other: '其他文件'
+}
+
 import { addDevice, uploadEquipmentFiles } from '@/api/devices'
 
 const stepIdx = ref(0)
@@ -45,7 +54,7 @@ async function submitArchive() {
         if (g.items) {
           g.items.forEach(i => {
             if (i.name && i.name.trim()) {
-              paramsList.push({ name: i.name.trim(), value: i.value || '' })
+              paramsList.push({ id: i.id || null, value: i.value || '' })
             }
           })
         }
@@ -54,14 +63,17 @@ async function submitArchive() {
 
     const filesList = []
     const realFilesToUpload = []
+    const realFileDescs = []
     if (pkg.value.docs) {
-      Object.values(pkg.value.docs).forEach(arr => {
+      Object.entries(pkg.value.docs).forEach(([catK, arr]) => {
         if (Array.isArray(arr)) {
           arr.forEach(f => {
             if (f.name) {
               filesList.push({ name: f.name, size: f.size || 0 })
               if (f.rawFile) {
                 realFilesToUpload.push(f.rawFile)
+                const descName = CAT_DESC_MAP[catK] || '设备照片'
+                realFileDescs.push(descName)
               }
             }
           })
@@ -80,21 +92,27 @@ async function submitArchive() {
       year: parseInt(pkg.value.year) || 2010,
       manufacturer: pkg.value.manufacturer || '',
       params: paramsList,
-      files: filesList
+      files: filesList,
+      dataModelId: pkg.value.dataModelId || '',
+      dataNodeId: pkg.value.dataNodeId || '',
+      equCount: parseInt(pkg.value.equCount) || 1
     }
 
     console.log('提交新设备载荷:', payload)
-    // 1. 先保存设备主体数据
-    await addDevice(payload)
+    // 1. 先保存设备主体数据，并校验返回值防止失败时假跳转
+    const success = await addDevice(payload)
+    if (!success) {
+      alert('保存新设备失败：设备编号可能已存在，请修改设备编号后重试。')
+      return
+    }
 
     // 2. 主体保存成功后，如有真实的本地文件，发起批量关联上传
     if (realFilesToUpload.length > 0) {
       const equId = payload.code
       const buildId = payload.buildingCode
-      const descs = realFilesToUpload.map(() => '')
       console.log(`设备 ${equId} 主体创建成功，开始上传 ${realFilesToUpload.length} 个本地附件...`)
       try {
-        await uploadEquipmentFiles(realFilesToUpload, equId, buildId, descs)
+        await uploadEquipmentFiles(realFilesToUpload, equId, buildId, realFileDescs)
         console.log('真实附件批量上传并持久化成功！')
       } catch (uploadErr) {
         console.error('附件批量上传失败:', uploadErr)

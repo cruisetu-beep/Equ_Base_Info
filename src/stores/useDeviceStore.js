@@ -12,6 +12,11 @@ export const useDeviceStore = defineStore('device', () => {
   const loading = ref(false)
   const error   = ref(null)
 
+  // ── 记忆筛选状态 ──────────────────────────────────────────────
+  const filterQuery  = ref('')
+  const filterType   = ref('all')
+  const filterStatus = ref('all')
+
   // ── 计算属性 ──────────────────────────────────────────────────
   const total     = computed(() => devices.value.length)
   const normalCnt = computed(() => devices.value.filter(d => d.status === 'normal').length)
@@ -74,6 +79,7 @@ export const useDeviceStore = defineStore('device', () => {
 
   return {
     devices, loading, error,
+    filterQuery, filterType, filterStatus,
     total, normalCnt, pendingCnt, lowCnt, phaseCnt,
     fetchDevices, createDevice, patchDevice, removeDevice,
   }

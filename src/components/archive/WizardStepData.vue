@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { getBuildingModels, getNodeEnergyData } from '@/api/devices'
@@ -16,13 +16,44 @@ const expandedNodes   = ref({})
 const modelDropdown   = ref(false)
 
 const selectedModel = computed(() => models.value.find(m => m.id === selectedModelId.value) || null)
+
+// 支持无限级深度遍历，精准找到选中的模型节点
 const selectedNode  = computed(() => {
   if (!selectedModel.value || !selectedNodeId.value) return null
-  for (const g of selectedModel.value.nodes) {
-    if (g.id === selectedNodeId.value) return g
-    for (const c of g.children || []) if (c.id === selectedNodeId.value) return c
+  function findNode(nodes) {
+    for (const n of nodes) {
+      if (n.id === selectedNodeId.value) return n
+      if (n.children && n.children.length > 0) {
+        const found = findNode(n.children)
+        if (found) return found
+      }
+    }
+    return null
   }
-  return null
+  return findNode(selectedModel.value.nodes)
+})
+
+// 递归拉平树形节点，支持无限层级扁平化渲染与精细缩进
+const flatNodes = computed(() => {
+  if (!selectedModel.value) return []
+  const list = []
+  function traverse(node, level, parentId = null) {
+    const hasChildren = node.children && node.children.length > 0
+    list.push({
+      id: node.id,
+      label: node.label,
+      level,
+      hasChildren,
+      parentId,
+      raw: node
+    })
+    // 只有当父节点被展开时，才继续向下递归拉平其子节点
+    if (hasChildren && expandedNodes.value[node.id]) {
+      node.children.forEach(c => traverse(c, level + 1, node.id))
+    }
+  }
+  selectedModel.value.nodes.forEach(n => traverse(n, 0))
+  return list
 })
 
 // 加载模型树
@@ -35,6 +66,24 @@ async function loadModels() {
     // 如果没有选中的模型，默认选中第一个
     if (!selectedModelId.value && models.value.length > 0) {
       selectModel(models.value[0].id)
+    } else if (selectedModelId.value) {
+      // 默认展开选中模型的所有一级分类
+      nextTick(() => {
+        if (selectedModel.value) {
+          selectedModel.value.nodes.forEach(n => {
+            expandedNodes.value[n.id] = true
+          })
+          
+          // 如果此前已选过节点，在后台默默自动补全其对应的中文名称，以便在后面的融合卡片中正常呈现中文名
+          if (selectedNodeId.value && selectedNode.value) {
+            emit('update:data', {
+              ...props.data,
+              dataModelName: selectedModel.value.name,
+              dataNodeName: selectedNode.value.label
+            })
+          }
+        }
+      })
     }
   } catch (e) {
     console.error('加载建筑模型树异常:', e)
@@ -50,17 +99,46 @@ function selectModel(id) {
   expandedNodes.value   = {}
   modelDropdown.value   = false
   energyData.value      = []
-  emit('update:data', { ...props.data, dataModelId: id, dataNodeId: '' })
+  const m = models.value.find(x => x.id === id)
+  emit('update:data', { 
+    ...props.data, 
+    dataModelId: id, 
+    dataModelName: m ? m.name : '',
+    dataNodeId: '',
+    dataNodeName: ''
+  })
+  
+  // 默认展开所有一级根节点（电、水等）
+  nextTick(() => {
+    if (selectedModel.value) {
+      selectedModel.value.nodes.forEach(n => {
+        expandedNodes.value[n.id] = true
+      })
+    }
+  })
 }
 
 function toggleGroup(id) {
   expandedNodes.value = { ...expandedNodes.value, [id]: !expandedNodes.value[id] }
 }
 
-async function selectNode(id) {
-  selectedNodeId.value = id
-  emit('update:data', { ...props.data, dataModelId: selectedModelId.value, dataNodeId: id })
-  await loadEnergyData(id)
+async function selectNode(node) {
+  selectedNodeId.value = node.id
+  emit('update:data', { 
+    ...props.data, 
+    dataModelId: selectedModelId.value, 
+    dataModelName: selectedModel.value?.name || '',
+    dataNodeId: node.id,
+    dataNodeName: node.label
+  })
+  await loadEnergyData(node.id)
+  await nextTick()
+  updateChart()
+  
+  // 如果选中了一个包含子节点的目录节点，并且目前折叠，点击文字时智能自动展开
+  if (node.hasChildren && !expandedNodes.value[node.id]) {
+    expandedNodes.value[node.id] = true
+  }
 }
 
 // ── 能耗数据 ──────────────────────────────────────────────────────
@@ -120,7 +198,7 @@ function buildOption() {
     },
     xAxis: {
       type: 'category', data: data.map(d => d.time),
-      axisLabel: { fontSize: 10, color: '#8a9bbf', interval: 11, formatter: v => v },
+      axisLabel: { fontSize: 10, color: '#8a9bbf', interval: 'auto', formatter: v => v },
       axisLine: { lineStyle: { color: '#dde4f0' } }, axisTick: { show: false },
       boundaryGap: false,
     },
@@ -146,14 +224,25 @@ function buildOption() {
 
 function updateChart() {
   if (!chartRef.value) return
+  // 如果已存在 chart 实例，但其挂载的 DOM 并不是当前最新的 chartRef 容器（说明发生过 v-if 销毁与重建），先销毁旧实例以防断开
+  if (chart && chart.getDom() !== chartRef.value) {
+    chart.dispose()
+    chart = null
+  }
   if (!chart) {
     chart = echarts.init(chartRef.value, null, { renderer: 'svg' })
     ro?.observe(chartRef.value)
   }
   chart.setOption(buildOption())
+  
+  // 延迟微调 resize，保证 100% 宽度完美撑满，消除由于 Flex/Transition 导致的初始化宽度为 0 假死
+  setTimeout(() => {
+    chart?.resize()
+  }, 60)
 }
 
-watch(energyData, () => {
+watch(energyData, async () => {
+  await nextTick()
   updateChart()
 })
 
@@ -221,25 +310,28 @@ onBeforeUnmount(() => {
           <span style="font-size: 12px; color: var(--text-3)">加载模型树中...</span>
         </div>
         <div class="tree-body" v-else-if="selectedModel">
-          <div v-for="group in selectedModel.nodes" :key="group.id" class="tree-section">
-            <div class="tree-group" @click="toggleGroup(group.id)">
-              <span class="tree-arrow">{{ expandedNodes[group.id] ? '▼' : '▶' }}</span>
-              <AppIcon name="panel" :size="13" stroke="var(--text-2)" />
-              <span>{{ group.label }}</span>
-            </div>
-            <transition name="slide">
-              <div v-if="expandedNodes[group.id]" class="tree-children">
-                <div
-                  v-for="child in group.children" :key="child.id"
-                  :class="['tree-node', selectedNodeId === child.id && 'active']"
-                  @click="selectNode(child.id)"
-                >
-                  <span class="node-dot" :class="selectedNodeId === child.id && 'on'"></span>
-                  <span>{{ child.label }}</span>
-                  <AppIcon v-if="selectedNodeId === child.id" name="check" :size="11" stroke="var(--brand)" style="margin-left:auto" />
-                </div>
-              </div>
-            </transition>
+          <div
+            v-for="node in flatNodes" :key="node.id"
+            :class="['tree-item-row', selectedNodeId === node.id && 'active']"
+            :style="{ paddingLeft: (node.level * 16 + 10) + 'px' }"
+            @click="selectNode(node)"
+          >
+            <span
+              v-if="node.hasChildren"
+              class="tree-arrow"
+              @click.stop="toggleGroup(node.id)"
+            >
+              {{ expandedNodes[node.id] ? '▼' : '▶' }}
+            </span>
+            <span v-else class="tree-arrow-placeholder"></span>
+            
+            <AppIcon
+              :name="node.level === 0 ? 'panel' : (node.hasChildren ? 'folder' : 'bolt')"
+              :size="13"
+              :stroke="selectedNodeId === node.id ? 'var(--brand)' : 'var(--text-2)'"
+            />
+            <span class="node-label">{{ node.label }}</span>
+            <AppIcon v-if="selectedNodeId === node.id" name="check" :size="11" stroke="var(--brand)" style="margin-left:auto" />
           </div>
         </div>
         <div class="tree-empty" v-else>请先选择数据模型</div>
@@ -265,8 +357,12 @@ onBeforeUnmount(() => {
             <span class="freq-badge">15min</span>
           </div>
           <div class="chart-title">今日用电曲线（15min 采集）</div>
-          <div ref="chartRef" class="ec-chart"></div>
-          <div class="data-source">来源：{{ selectedModel?.name }} · {{ selectedNode?.label }}</div>
+          <div v-if="energyData.length" ref="chartRef" class="ec-chart"></div>
+          <div v-else class="ec-chart-empty">
+            <AppIcon name="info" :size="18" stroke="var(--text-3)" />
+            <span>该节点暂无用电能耗时序数据</span>
+          </div>
+          <div class="data-source" v-if="energyData.length">来源：{{ selectedModel?.name }} · {{ selectedNode?.label }}</div>
         </template>
       </div>
 
@@ -286,7 +382,7 @@ onBeforeUnmount(() => {
 }
 
 /* 节点树面板 */
-.tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 0; }
+.tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 0; height: 440px; }
 .panel-step-label {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--text-0);
@@ -325,33 +421,24 @@ onBeforeUnmount(() => {
 /* 主体 */
 
 /* 节点树面板 */
-.tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.tree-panel { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; height: 440px; }
 .tree-body { flex: 1; overflow-y: auto; padding: 8px; }
 .tree-empty { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-3); padding: 20px; text-align: center; }
 .tree-section { margin-bottom: 2px; }
-.tree-group {
+.tree-item-row {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px; cursor: pointer; border-radius: 6px;
-  font-size: 12px; font-weight: 600; color: var(--text-1); user-select: none;
+  padding: 7px 10px; cursor: pointer; border-radius: 6px;
+  font-size: 12px; color: var(--text-2); user-select: none;
+  transition: all 0.15s;
 }
-.tree-group:hover { background: #f5f8ff; }
-.tree-arrow { font-size: 9px; color: var(--text-3); width: 12px; flex-shrink: 0; }
-.tree-children { padding-left: 4px; }
-.tree-node {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 10px 7px 22px; border-radius: 6px;
-  cursor: pointer; font-size: 12px; color: var(--text-2);
-  transition: all 0.15s; user-select: none;
-}
-.tree-node:hover { background: #f5f8ff; color: var(--text-0); }
-.tree-node.active { background: #eef5ff; color: var(--brand); font-weight: 500; }
-.node-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--line-strong); transition: background 0.15s; }
-.node-dot.on { background: var(--brand); }
-.slide-enter-active, .slide-leave-active { transition: all 0.2s ease; }
-.slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-4px); }
+.tree-item-row:hover { background: #f5f8ff; color: var(--text-0); }
+.tree-item-row.active { background: #eef5ff; color: var(--brand); font-weight: 500; }
+.tree-arrow { font-size: 8px; color: var(--text-3); width: 12px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; height: 12px; cursor: pointer; }
+.tree-arrow-placeholder { width: 12px; flex-shrink: 0; }
+.node-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; margin-left: 2px; }
 
 /* 预览面板 */
-.preview-panel { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 16px; display: flex; flex-direction: column; }
+.preview-panel { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 16px; display: flex; flex-direction: column; min-width: 0; }
 .preview-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-3); }
 .preview-empty .h { font-size: 14px; font-weight: 500; color: var(--text-2); }
 .preview-empty .s { font-size: 12px; }
@@ -365,6 +452,11 @@ onBeforeUnmount(() => {
 .ec-label { font-size: 10px; color: var(--text-3); margin-top: 3px; }
 .ec-div { width: 1px; height: 28px; background: var(--line); flex-shrink: 0; }
 .chart-title { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
-.ec-chart { height: 260px; width: 100%; }
-.data-source { margin-top: 8px; font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace; text-align: right; }
+.ec-chart { flex: 1; min-height: 200px; width: 100%; }
+.data-source { margin-top: 8px; font-size: 11px; color: var(--text-3); text-align: right; user-select: none; }
+.ec-chart-empty {
+  height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text-3); font-size: 12px; background: #fafbfc; border: 1px dashed var(--line);
+  border-radius: 8px;
+}
 </style>

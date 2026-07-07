@@ -3,7 +3,7 @@
 // 对应原 React OverviewView 组件，完整迁移
 // Emits: create（跳转录入）、judge（跳转判定）
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP, parseTypeK } from '@/data/devices'
 import { getDevices, getEquipmentTypeDict } from '@/api/devices'
@@ -16,10 +16,17 @@ const deviceStore = useDeviceStore()
 // ── 加载状态与数据 ──────────────────────────────────────────────────────
 const isLoading  = ref(true)    // 是否在加载中
 const devices    = ref([])       // 真实设备数据
-const typeFilter = ref('all') // 选中的设备类型筛选ID
+const typeFilter = ref(deviceStore.filterType || 'all') // 从 store 记忆状态恢复类型筛选
 const typeDict   = ref([])    // 字典表获取的设备类型列表
-const stat       = ref('all')   // 状态
-const q          = ref('')      // 搜索关键字
+const stat       = ref(deviceStore.filterStatus || 'all')   // 从 store 记忆状态恢复状态筛选
+const q          = ref(deviceStore.filterQuery || '')      // 从 store 记忆状态恢复搜索词
+
+// 监听当前筛选参数并同步备份回 Pinia Store，以维持返回时的条件记忆
+watch([q, typeFilter, stat], ([newQ, newType, newStat]) => {
+  deviceStore.filterQuery = newQ
+  deviceStore.filterType = newType
+  deviceStore.filterStatus = newStat
+})
 
 // 自定义下拉框状态与引用
 const showTypeDropdown = ref(false)
@@ -180,13 +187,23 @@ const STATUS_ICON = {
               v-model="q"
               placeholder="搜索设备名称 / 编号 / 型号"
           />
+          <button v-if="q" class="search-clear-btn" @click="q = ''" title="清空搜索">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
         <!-- 设备类型下拉框（自定义模拟下拉框，与 WizardStepBasic 精细度对应） -->
         <div class="custom-select-wrap" ref="selectWrapRef">
           <div class="select-trigger" @click="showTypeDropdown = !showTypeDropdown">
-            <AppIcon name="filter" :size="12" stroke="var(--text-3)" />
-            <span class="selected-val">{{ selectedTypeName }}</span>
+            <AppIcon 
+              :name="typeFilter === 'all' ? 'filter' : (DEV_TYPE_MAP[parseTypeK(selectedTypeName)]?.icon || 'cube')" 
+              :size="12" 
+              :stroke="typeFilter === 'all' ? 'var(--text-3)' : (DEV_TYPE_MAP[parseTypeK(selectedTypeName)]?.color || 'var(--text-2)')" 
+            />
+            <span class="selected-val" :style="{ color: typeFilter === 'all' ? 'var(--text-1)' : 'var(--text-0)', fontWeight: typeFilter === 'all' ? 'normal' : '600' }">{{ selectedTypeName }}</span>
             <AppIcon name="chevron-down" :size="12" stroke="var(--text-3)" :class="['arrow-icon', showTypeDropdown && 'rotated']" />
           </div>
           
@@ -196,6 +213,7 @@ const STATUS_ICON = {
                 :class="['dropdown-item', typeFilter === 'all' && 'active']"
                 @click="selectType('all')"
               >
+                <AppIcon name="cube" :size="13" stroke="var(--text-3)" />
                 全部类型
               </div>
               <div 
@@ -204,6 +222,11 @@ const STATUS_ICON = {
                 :class="['dropdown-item', typeFilter === t.equipmentTypeId && 'active']"
                 @click="selectType(t.equipmentTypeId)"
               >
+                <AppIcon 
+                  :name="DEV_TYPE_MAP[parseTypeK(t.equipmentTypeName)]?.icon || 'cube'" 
+                  :size="13" 
+                  :stroke="DEV_TYPE_MAP[parseTypeK(t.equipmentTypeName)]?.color || 'var(--text-2)'" 
+                />
                 {{ t.equipmentTypeName }}
               </div>
             </div>
@@ -251,13 +274,18 @@ const STATUS_ICON = {
 
       <!-- 骨架屏加载中占位卡片 -->
       <template v-if="isLoading">
-        <div v-for="n in 9" :key="n" class="skeleton-card">
+        <div v-for="n in 14" :key="n" class="skeleton-card">
           <div class="sk-head">
             <div class="sk-thumb shinning"></div>
             <div class="sk-info">
               <div class="sk-title shinning"></div>
               <div class="sk-desc shinning"></div>
             </div>
+          </div>
+          <!-- 填补中间的参数线框骨架，避免空白导致的大行距视觉误差 -->
+          <div class="sk-body">
+            <div class="sk-bar shinning"></div>
+            <div class="sk-bar shinning" style="width: 80%"></div>
           </div>
           <div class="sk-foot">
             <div class="sk-text shinning"></div>
@@ -287,7 +315,7 @@ const STATUS_ICON = {
                 <AppIcon :name="DEV_TYPE_MAP[d.typeK].icon" :size="26" :stroke="DEV_TYPE_MAP[d.typeK].color" />
               </div>
               <div class="dev-info">
-                <div class="name">{{ d.name }}</div>
+                <div class="name" :title="d.name">{{ d.name }}</div>
                 <div class="type-line">
                   <span class="dot" :style="{ '--cl': DEV_TYPE_MAP[d.typeK].color }" />
                   <span class="text-ellipsis">{{ d.type2 }}</span>
@@ -306,9 +334,9 @@ const STATUS_ICON = {
             </div>
 
             <!-- 原因依据框 -->
-            <div v-if="d.reason" class="reason-box">
-              <span v-if="d.ruleId" class="rule-id">{{ d.ruleId }}</span>
-              <span>{{ d.reason }}</span>
+            <div v-if="d.reason" class="reason-box" :title="d.reason">
+              <span v-if="d.ruleId" class="rule-id" :title="d.ruleId">{{ d.ruleId }}</span>
+              <span class="reason-text">{{ d.reason }}</span>
             </div>
 
             <!-- 卡底：所属建筑 + 更新时间 -->
@@ -384,6 +412,18 @@ const STATUS_ICON = {
   flex: 1; padding: 9px 0; background: transparent; border: 0;
   color: var(--text-0); font-size: 13px; outline: none; font-family: inherit;
 }
+.search-clear-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: transparent; border: none; outline: none;
+  color: var(--text-3); cursor: pointer; padding: 0;
+  transition: all 0.15s ease;
+}
+.search-clear-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-1);
+}
+
 
 /* 自定义模拟下拉框样式 */
 .custom-select-wrap {
@@ -418,6 +458,7 @@ const STATUS_ICON = {
   padding: 4px;
 }
 .dropdown-item {
+  display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; font-size: 12.5px; color: var(--text-1);
   border-radius: 6px; cursor: pointer; transition: all 0.15s;
   white-space: nowrap;
@@ -461,6 +502,8 @@ const STATUS_ICON = {
 .dev-list { 
   display: grid; 
   grid-template-columns: repeat(5, 1fr); /* 调整为一排 5 列，卡片宽度更小更紧凑 */
+  grid-auto-rows: max-content; /* 保证行高紧凑包裹内容，不受最小高度拉伸影响 */
+  align-content: start; /* 剩余高度在底部留白，绝不顶开卡片行距 */
   gap: 16px; 
   min-height: 520px; /* 保证页面刷新或无数据时高度不突然塌陷缩拢 */
 }
@@ -475,7 +518,7 @@ const STATUS_ICON = {
   box-shadow: 0 1px 2px rgba(60,110,200,0.04);
   display: flex;
   flex-direction: column;
-  height: 180px; /* 统一高度，使带与不带依据原因的卡片保持一致 */
+  min-height: 180px; /* 统一最小高度，使带与不带依据原因的卡片保持一致 */
   box-sizing: border-box;
 }
 .dev-tile:hover {
@@ -520,7 +563,17 @@ const STATUS_ICON = {
 }
 .dev-info { flex: 1; min-width: 0; }
 .dev-info .code { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--text-2); }
-.dev-info .name { font-size: 14.5px; color: var(--text-0); font-weight: 500; margin-top: 2px; line-height:1.35; padding-right: 85px; }
+.dev-info .name {
+  font-size: 14.5px;
+  color: var(--text-0);
+  font-weight: 500;
+  margin-top: 2px;
+  line-height: 1.35;
+  padding-right: 85px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dev-info .type-line { font-size: 11px; color: var(--text-2); margin-top: 4px; display:flex; gap:8px; align-items:center; min-width: 0; }
 .dev-info .type-line .dot { width:5px; height:5px; border-radius:50%; background: var(--cl); flex-shrink: 0; }
 .dev-info .text-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
@@ -564,7 +617,8 @@ const STATUS_ICON = {
   font-size: 11px;
   color: var(--text-1);
   line-height: 1.5;
-  display:flex; gap:6px;
+  display: flex; gap: 6px;
+  align-items: center;
 }
 .dev-tile.low_eff .reason-box  { background: rgba(234,140,46,0.06); border-left-color: var(--eol-low); }
 .dev-tile.normal  .reason-box  { display: none; }
@@ -574,6 +628,17 @@ const STATUS_ICON = {
   padding: 1px 6px; border-radius: 3px;
   background: rgba(224,57,79,0.12); color: var(--eol-red);
   margin-right: 6px; flex-shrink: 0;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reason-box .reason-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 卡底 */
@@ -641,6 +706,8 @@ const STATUS_ICON = {
 .sk-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .sk-title { height: 16px; border-radius: 4px; width: 70%; }
 .sk-desc { height: 12px; border-radius: 4px; width: 40%; }
+.sk-body { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.sk-bar { height: 12px; border-radius: 4px; width: 95%; }
 .sk-foot {
   display: flex; justify-content: space-between;
   margin-top: auto;

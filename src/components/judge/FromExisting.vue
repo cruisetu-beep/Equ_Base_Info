@@ -91,6 +91,12 @@ const loadData = async () => {
 }
 
 onMounted(async () => {
+  // 如果有传入初始设备，自动设置搜索关键字为该设备编号，以便过滤出唯一一行
+  if (props.initialDevices && props.initialDevices.length > 0) {
+    const d = props.initialDevices[0]
+    q.value = d.code || d.equId || d.name || ''
+  }
+
   await loadData()
   
   if (props.initialDevices && props.initialDevices.length > 0) {
@@ -99,7 +105,16 @@ onMounted(async () => {
       const id = d.equId || d.id
       if (id) {
         const matched = allDevices.value.find(x => x.equId === id)
-        newSels[id] = matched || { equId: id, equipmentName: d.equipmentName || d.name || `设备 ${id}`, ...d }
+        newSels[id] = matched || { 
+          equId: id, 
+          equipmentName: d.equipmentName || d.name || `设备 ${id}`, 
+          code: d.code || id,
+          type2: d.type2 || '',
+          model: d.model || '',
+          year: d.year || '',
+          manufacturer: d.manufacturer || '',
+          buildName: d.buildName || d.building || ''
+        }
       }
     })
     selected.value = newSels
@@ -265,9 +280,9 @@ function getDeviceIcon(d) {
 function getStatusTagClass(d) {
   if (d.judgeStatus === '未判定') return 'pending'
   const type = d.eliminationType || ''
-  if (type.includes('强制')) return 'phaseout'
-  if (type.includes('限期') || type.includes('落后') || type.includes('低效') || type.includes('过渡')) return 'low_eff'
-  return 'normal'
+  if (type === '正常') return 'normal'
+  if (type.includes('低效') || type.includes('落后')) return 'low_eff'
+  return 'phaseout'
 }
 
 function getStatusTagLabel(d) {

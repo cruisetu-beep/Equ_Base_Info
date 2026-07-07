@@ -19,6 +19,22 @@ defineEmits(['back', 'edit', 'rejudge', 'view-rule'])
 const device = ref(null)
 const loading = ref(false)
 
+function formatParamValue(p) {
+  let val = p.value || "—"
+  // 1. 设备参数能效等级如果是9，显示desc
+  if ((p.attributeId === 43 || (p.name && p.name.includes("能效等级"))) && String(p.value).trim() === "9") {
+    val = p.desc || p.Desc || val
+  }
+  // 2. 能效指数(COP)保留两位小数
+  if (p.name && p.name.toUpperCase().includes("COP")) {
+    const num = parseFloat(val)
+    if (!isNaN(num)) {
+      val = num.toFixed(2)
+    }
+  }
+  return val
+}
+
 async function loadDevice() {
   if (!props.deviceId) return
   loading.value = true
@@ -33,18 +49,50 @@ async function loadDevice() {
           groupName: "技术参数",
           items: (res.params || []).map(p => ({
             name: p.name,
-            value: p.value || "—"
+            value: formatParamValue(p)
           }))
         }
       ]
 
+      const recs = res.eliminationRecords || []
+      let finalStatus = 'normal'
+      let finalLevel = '正常运行'
+      if (recs.length > 0) {
+        const sorted = [...recs].sort((a, b) => {
+          const getScore = (rec) => {
+            const t = (rec.eliminationType || '').trim()
+            if (t.includes('强制') || t.includes('限期') || t.includes('过渡')) return 0
+            if (t.includes('低效')) return 1
+            if (t.includes('待')) return 2
+            return 3
+          }
+          return getScore(a) - getScore(b)
+        })
+        const mainRec = sorted[0]
+        const t = (mainRec.eliminationType || '').trim()
+        if (t.includes('强制')) {
+          finalStatus = 'phaseout'
+          finalLevel = '强制淘汰'
+        } else if (t.includes('限期')) {
+          finalStatus = 'phaseout'
+          finalLevel = '限期淘汰'
+        } else if (t.includes('过渡')) {
+          finalStatus = 'phaseout'
+          finalLevel = '过渡淘汰'
+        } else if (t.includes('低效')) {
+          finalStatus = 'low_eff'
+          finalLevel = '低效设备'
+        } else if (t.includes('待判定')) {
+          finalStatus = 'pending'
+          finalLevel = '待判定'
+        }
+      }
+
       device.value = {
         ...res,
+        status: finalStatus,
+        level: finalLevel,
         files: res.files || [],
-        ruleHit: res.ruleId,
-        matchMethod: res.matchMethod,
-        ruleBatch: res.ruleBatch,
-        ruleDeadline: res.ruleDeadline,
         paramGroups: realParamGroups,
         energyData: res.energyData || [],
       }
@@ -114,7 +162,7 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="btn primary" @click="$emit('edit')"><AppIcon name="ban" :size="14" /> 淘汰设备判定</button>
+        <button class="btn primary" @click="$emit('rejudge', device)"><AppIcon name="ban" :size="14" /> 淘汰设备判定</button>
       </div>
     </div>
 
@@ -159,7 +207,13 @@ const STATUS_ICON = { normal: 'check', pending: 'info', low_eff: 'warn', phaseou
         <RuntimeParamsCard :paramGroups="device.paramGroups" />
 
         <!-- 能耗图表卡 -->
-        <EnergyChartCard :energyData="device.energyData" :monthKwh="device.monthKwh" :yearKwh="device.yearKwh" :deviceName="device.name" />
+        <EnergyChartCard 
+          :energyData="device.energyData" 
+          :todayKwh="device.todayKwh" 
+          :monthKwh="device.monthKwh" 
+          :yearKwh="device.yearKwh" 
+          :deviceName="device.name" 
+        />
       </div>
 
       <!-- 右栏：淘汰判定详情 -->

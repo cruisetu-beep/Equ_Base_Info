@@ -241,7 +241,8 @@ async function runDeviceJudge(index) {
 onMounted(() => {
   if (props.devices.length > 0) {
     // 后台并行预请求所有设备的判定数据，不阻碍前台校验和动画的立即开始
-    props.devices.forEach(async (dev) => {
+    props.devices.forEach(async (dev, idx) => {
+      if (idx === 0) return // 跳过第一台当前需要立即展示并请求的设备，防止并发网络请求重复
       try {
         const equId = dev.equId || dev.id
         const isQuick = !dev.equId || String(equId).startsWith('quick-');

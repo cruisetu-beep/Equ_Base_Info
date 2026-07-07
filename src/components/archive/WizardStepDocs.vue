@@ -431,9 +431,11 @@ const acceptTypes = computed(() => {
           </div>
           <div class="label">{{ s.n }}</div>
           <div class="stat">
-            <template v-if="s.k === 1 && allDocs.length > 0">{{ allDocs.length }} 份</template>
+            <template v-if="s.k === 1 && allDocs.length > 0">
+              <span class="stat-normal">{{ allDocs.length }} 份</span>
+            </template>
             <template v-if="s.k === 2 && allDocs.filter(d => d.stage >= 2).length > 0">
-              {{ allDocs.filter(d => d.stage >= 2).length }} 份
+              <span class="stat-success">{{ allDocs.filter(d => d.stage >= 2).length }} 份</span>
             </template>
           </div>
         </div>
@@ -596,9 +598,9 @@ const acceptTypes = computed(() => {
 .pipe-step.done .dot { background: rgba(24,165,114,0.10); border-color: var(--ok); color: var(--ok); }
 .pipe-step .label { flex: 1; font-size: 12px; color: var(--text-2); }
 .pipe-step.active .label { color: var(--text-0); }
-.pipe-step.done .label { color: var(--text-1); }
 .pipe-step .stat { font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace; }
-.pipe-step.done .stat { color: var(--ok); }
+.stat-normal { color: var(--text-3); }
+.stat-success { color: var(--ok); font-weight: 500; }
 
 .parse-log-2 {
   background: #0f1d3d; border-radius: 8px; padding: 10px;

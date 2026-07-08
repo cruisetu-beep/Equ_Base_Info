@@ -110,12 +110,13 @@ const THEMES = [
             <div class="card-step">STEP 2</div>
             <div class="card-title">设备参数</div>
           </div>
-          <div class="done-badge">
+          <div class="done-badge" v-if="paramCount > 0">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
               <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             已完成
           </div>
+          <div class="skip-badge" v-else>未填</div>
         </div>
         <div class="accent-block" :style="{ background: THEMES[1].accentBg, borderLeftColor: THEMES[1].accentBorder }">
           <div class="accent-intro">运行参数已全部录入</div>
@@ -140,12 +141,13 @@ const THEMES = [
             <div class="card-step">STEP 3</div>
             <div class="card-title">档案资料</div>
           </div>
-          <div class="done-badge">
+          <div class="done-badge" v-if="docTotal > 0">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
               <path d="M3 8.5l4 4 7-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             已完成
           </div>
+          <div class="skip-badge" v-else>未上传</div>
         </div>
         <div class="accent-block" :style="{ background: THEMES[2].accentBg, borderLeftColor: THEMES[2].accentBorder }">
           <div class="accent-intro">相关档案资料已上传</div>

@@ -394,20 +394,20 @@ const progress = computed(() => {
           <div v-if="errors.buildingCode" class="err-msg">{{ errors.buildingCode }}</div>
         </div>
 
-        <div :class="['field', errors.code && 'has-err']">
-          <label class="field-label">设备编号 <span class="req">*</span></label>
-          <input class="input mono" placeholder="例如 DEV-MTR-2018-0042"
-                 :value="pkg.code || ''"
-                 @input="e => set('code', e.target.value)" />
-          <div v-if="errors.code" class="err-msg">{{ errors.code }}</div>
-        </div>
-
         <div :class="['field', errors.name && 'has-err']">
           <label class="field-label">设备名称 <span class="req">*</span></label>
           <input class="input" placeholder="例如 地下泵房 1# 给水泵电机"
                  :value="pkg.name || ''"
                  @input="e => set('name', e.target.value)" />
           <div v-if="errors.name" class="err-msg">{{ errors.name }}</div>
+        </div>
+
+        <div :class="['field', errors.code && 'has-err']">
+          <label class="field-label">设备编号 <span class="req">*</span></label>
+          <input class="input mono" placeholder="例如 DEV-MTR-2018-0042"
+                 :value="pkg.code || ''"
+                 @input="e => set('code', e.target.value)" />
+          <div v-if="errors.code" class="err-msg">{{ errors.code }}</div>
         </div>
 
         <div :class="['field', errors.typeK && 'has-err']">

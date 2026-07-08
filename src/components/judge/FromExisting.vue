@@ -33,7 +33,8 @@ const handleJudgeSuccess = async () => {
 }
 
 const props = defineProps({
-  initialDevices: { type: Array, default: () => [] }
+  initialDevices: { type: Array, default: () => [] },
+  autoSearch: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['start', 'back'])
@@ -92,7 +93,7 @@ const loadData = async () => {
 
 onMounted(async () => {
   // 如果有传入初始设备，自动设置搜索关键字为该设备编号，以便过滤出唯一一行
-  if (props.initialDevices && props.initialDevices.length > 0) {
+  if (props.autoSearch && props.initialDevices && props.initialDevices.length > 0) {
     const d = props.initialDevices[0]
     q.value = d.code || d.equId || d.name || ''
   }
@@ -192,6 +193,26 @@ const visiblePages = computed(() => {
 
 const changePage = (idx) => {
   pageIndex.value = idx
+}
+
+// 分页快速跳转功能响应式数据与跳转方法
+const jumpPageInput = ref(1)
+
+// 监听当前页码变化以实时同步跳转输入框的值
+watch(pageIndex, (newVal) => {
+  jumpPageInput.value = newVal
+}, { immediate: true })
+
+// 执行跳转逻辑，确保目标页码在 1 ~ totalPages 之间
+const handleJump = () => {
+  let val = parseInt(jumpPageInput.value)
+  if (isNaN(val) || val < 1) {
+    val = 1
+  } else if (val > totalPages.value) {
+    val = totalPages.value
+  }
+  jumpPageInput.value = val
+  changePage(val)
 }
 
 // 勾选操作：向购物车添加/删除设备对象
@@ -452,6 +473,19 @@ const STATUS_ICON = {
           {{ p }}
         </button>
         <button class="btn ghost btn-sm" :disabled="pageIndex >= totalPages" @click="changePage(pageIndex + 1)">下一页</button>
+        <span class="pg-jump">
+          前往
+          <input 
+            type="number" 
+            v-model.number="jumpPageInput" 
+            class="pg-jump-input" 
+            min="1" 
+            :max="totalPages"
+            @keyup.enter="handleJump"
+          />
+          页
+          <button class="btn ghost btn-sm pg-jump-btn" @click="handleJump">跳转</button>
+        </span>
       </div>
     </div>
 
@@ -690,7 +724,42 @@ const STATUS_ICON = {
 }
 .pg-btns {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+.pg-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-left: 12px;
+}
+.pg-jump-input {
+  width: 54px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-0);
+  background: white;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.pg-jump-input:focus {
+  border-color: var(--brand);
+}
+.pg-jump-input::-webkit-outer-spin-button,
+.pg-jump-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.pg-jump-input[type="number"] {
+  -moz-appearance: textfield;
+}
+.pg-jump-btn {
+  margin-left: 4px;
 }
 
 .float-bar {

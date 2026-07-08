@@ -21,12 +21,14 @@ const entryMode      = ref('from-existing')
 const devicesToJudge = ref([])
 const selectedProcessesToRun = ref(['1', '2', '3'])
 const results        = ref([])
+const isFromCompletedResult = ref(false)
 
 const initFromProps = () => {
   if (props.initialDevices && props.initialDevices.length > 0) {
     devicesToJudge.value = [...props.initialDevices]
     entryMode.value = 'from-existing'
     phase.value = 'running'
+    isFromCompletedResult.value = false
   }
 }
 
@@ -45,6 +47,7 @@ function startJudge(devs, processes) {
 function onJudgeDone(rs) {
   results.value = rs
   phase.value = 'result'
+  isFromCompletedResult.value = true
 }
 </script>
 
@@ -62,6 +65,7 @@ function onJudgeDone(rs) {
     v-else-if="phase === 'from-existing'"
     :rules="rules"
     :initial-devices="devicesToJudge"
+    :auto-search="!isFromCompletedResult"
     @start="startJudge"
     @back="phase = 'select'"
   />

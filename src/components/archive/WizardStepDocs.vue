@@ -116,7 +116,8 @@ async function addDocs(catK, files) {
     
     try {
       // 请求真实接口
-      const response = await axios.post('/kouzi/ocrFileWorkFlow', formData, {
+      const ocrApi = import.meta.env.VITE_APP_KOUZI_API || '/'
+      const response = await axios.post(`${ocrApi}/kouzi/ocrFileWorkFlow`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       

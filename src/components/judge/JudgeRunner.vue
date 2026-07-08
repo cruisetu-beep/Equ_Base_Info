@@ -8,6 +8,53 @@ import { DEV_TYPE_MAP } from '@/data/devices'
 import { JUDGE_STATUS_MAP } from '@/data/rules'
 import { tokenizeJudgeLog } from '@/utils/logHelpers'
 
+// 辅助函数：由于详情页和列表页传入的数据结构不一致，这里对自定义参数进行智能扁平化归一提取
+const getDevParams = (d) => {
+  if (!d) return {}
+  const raw = d.value || d
+  
+  // 1. 如果 raw.params 是非数组的扁平键值对对象：
+  if (raw.params && typeof raw.params === 'object' && !Array.isArray(raw.params)) {
+    return raw.params
+  }
+  
+  // 2. 如果 raw.params 是一个对象数组，例如 [ { name: '型号', value: 'HZJ-1' } ]：
+  const p = {}
+  if (raw.params && Array.isArray(raw.params)) {
+    raw.params.forEach(item => {
+      if (item) {
+        const name = item.name || item.Name || item.key || item.Key || ''
+        const val = item.value !== undefined ? item.value : (item.Value !== undefined ? item.Value : '')
+        if (name) {
+          p[name] = val
+        }
+      }
+    })
+    return p
+  }
+
+  // 3. 如果有 paramGroups 嵌套组
+  if (raw.paramGroups && Array.isArray(raw.paramGroups)) {
+    raw.paramGroups.forEach(g => {
+      if (g && g.items && Array.isArray(g.items)) {
+        g.items.forEach(item => {
+          if (item && item.name) {
+            p[item.name] = item.value
+          }
+        })
+      }
+    })
+  }
+  return p
+}
+
+// 辅助函数：校验型号是否为空或属于占位符（如 "-", "—", "/", "null" 等）
+const isModelEmpty = (m) => {
+  if (m === null || m === undefined) return true
+  const t = String(m).trim()
+  return t === '' || t === '-' || t === '—' || t === '/' || t === 'null' || t === 'undefined'
+}
+
 const props = defineProps({
   devices: { type: Array, required: true },
   rules:   { type: Array, required: true },
@@ -57,8 +104,10 @@ async function runDeviceJudge(index) {
   
   const dev = props.devices[index]
   
+  const devParams = getDevParams(dev)
+  const logModel = !isModelEmpty(dev.model) ? dev.model : (devParams['型号'] || devParams['规格型号'] || '—')
   logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】开始校验设备 data：${dev.name || dev.equipmentName || '未命名'} (编号: ${dev.code || dev.equId || `TEMP-${index}`})` })
-  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】类型：${dev.typeName || dev.type2 || '—'}，型号：${dev.model || '—'}` })
+  logs.value.push({ ts: tsNow(), lv: 'info', msg: `【INFO】类型：${dev.typeName || dev.type2 || '—'}，型号：${logModel}` })
   
   // 模拟极短本地数据校验
   await new Promise(r => setTimeout(r, 200))
@@ -75,16 +124,21 @@ async function runDeviceJudge(index) {
     if (!apiRes) {
       const isQuick = !dev.equId || String(equId).startsWith('quick-');
       if (isQuick) {
-        const attributes = Object.entries(dev.params || {}).map(([key, value]) => ({ key, value }));
-        const brand = dev.manufacturer || dev.brand || dev.params?.['品牌'] || dev.params?.['生产厂家'] || '';
-        const power = dev.power || dev.params?.['功率'] || dev.params?.['额定功率'] || '';
+        const devParams = getDevParams(dev);
+        const attributes = Object.entries(devParams).map(([key, value]) => ({
+          key: String(key),
+          value: value !== null && value !== undefined ? String(value) : ''
+        }));
+        const brand = dev.manufacturer || dev.brand || devParams['品牌'] || devParams['生产厂家'] || '';
+        const power = dev.power || devParams['功率'] || devParams['额定功率'] || '';
+        const deviceModel = !isModelEmpty(dev.model) ? dev.model : (devParams['型号'] || devParams['规格型号'] || '');
         const payload = {
-          EquipmentTypeId: dev.typeDbId || dev.typeK,
-          EquipmentName: dev.name || dev.equipmentName,
-          Model: dev.model,
-          Brand: brand,
-          Year: dev.year,
-          Power: power,
+          EquipmentTypeId: dev.typeDbId || dev.typeK ? String(dev.typeDbId || dev.typeK) : null,
+          EquipmentName: dev.name || dev.equipmentName ? String(dev.name || dev.equipmentName) : '',
+          Model: deviceModel ? String(deviceModel) : '',
+          Brand: brand ? String(brand) : '',
+          Year: dev.year ? String(dev.year) : '',
+          Power: power ? String(power) : '',
           ManufactureDate: dev.manufactureDate || (dev.year ? `${dev.year}-06-01` : ''),
           Attributes: attributes,
           JudgmentProcesses: props.processes
@@ -248,16 +302,21 @@ onMounted(() => {
         const isQuick = !dev.equId || String(equId).startsWith('quick-');
         let res;
         if (isQuick) {
-          const attributes = Object.entries(dev.params || {}).map(([key, value]) => ({ key, value }));
-          const brand = dev.manufacturer || dev.brand || dev.params?.['品牌'] || dev.params?.['生产厂家'] || '';
-          const power = dev.power || dev.params?.['功率'] || dev.params?.['额定功率'] || '';
+          const devParams = getDevParams(dev);
+          const attributes = Object.entries(devParams).map(([key, value]) => ({
+            key: String(key),
+            value: value !== null && value !== undefined ? String(value) : ''
+          }));
+          const brand = dev.manufacturer || dev.brand || devParams['品牌'] || devParams['生产厂家'] || '';
+          const power = dev.power || devParams['功率'] || devParams['额定功率'] || '';
+          const deviceModel = !isModelEmpty(dev.model) ? dev.model : (devParams['型号'] || devParams['规格型号'] || '');
           const payload = {
-            EquipmentTypeId: dev.typeDbId || dev.typeK,
-            EquipmentName: dev.name || dev.equipmentName,
-            Model: dev.model,
-            Brand: brand,
-            Year: dev.year,
-            Power: power,
+            EquipmentTypeId: dev.typeDbId || dev.typeK ? String(dev.typeDbId || dev.typeK) : null,
+            EquipmentName: dev.name || dev.equipmentName ? String(dev.name || dev.equipmentName) : '',
+            Model: deviceModel ? String(deviceModel) : '',
+            Brand: brand ? String(brand) : '',
+            Year: dev.year ? String(dev.year) : '',
+            Power: power ? String(power) : '',
             ManufactureDate: dev.manufactureDate || (dev.year ? `${dev.year}-06-01` : ''),
             Attributes: attributes,
             JudgmentProcesses: props.processes
@@ -358,7 +417,7 @@ onMounted(() => {
         </div>
         <div class="info-rows">
           <div><span class="lbl">类型：</span>{{ devType.label }} / {{ curDevice.typeName || curDevice.type2 || '—' }}</div>
-          <div><span class="lbl">型号：</span><span class="mono">{{ curDevice.model || '—' }}</span></div>
+          <div><span class="lbl">型号：</span><span class="mono">{{ !isModelEmpty(curDevice.model) ? curDevice.model : (getDevParams(curDevice)['型号'] || getDevParams(curDevice)['规格型号'] || '—') }}</span></div>
           <div><span class="lbl">投运：</span>{{ curDevice.year || '—' }} 年</div>
           <div v-if="curDevice.building || curDevice.buildName"><span class="lbl">建筑：</span>{{ curDevice.buildName || curDevice.building }}</div>
         </div>

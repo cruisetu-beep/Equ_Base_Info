@@ -6,7 +6,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { DEV_TYPE_MAP, parseTypeK } from '@/data/devices'
-import { getDevices, getEquipmentTypeDict } from '@/api/devices'
+import { getDevices, getEquipmentTypeDict, getBuildingList } from '@/api/devices'
 import { useDeviceStore } from '@/stores/useDeviceStore'
 
 defineEmits(['create', 'judge', 'view-detail'])
@@ -20,48 +20,107 @@ const typeFilter = ref(deviceStore.filterType || 'all') // 从 store 记忆状�
 const typeDict   = ref([])    // 字典表获取的设备类型列表
 const stat       = ref(deviceStore.filterStatus || 'all')   // 从 store 记忆状态恢复状态筛选
 const q          = ref(deviceStore.filterQuery || '')      // 从 store 记忆状态恢复搜索词
+const buildingFilter = ref(deviceStore.filterBuilding || 'all') // 建筑维度（设备列表）筛选
+const buildings      = ref([]) // 建筑字典列表
+const displayLimit   = ref(60) // 限制首屏及单次渲染卡片数，解决全量 1600+ 卡片渲染带来的主线程阻塞卡顿问题
 
-// 监听当前筛选参数并同步备份回 Pinia Store，以维持返回时的条件记忆
-watch([q, typeFilter, stat], ([newQ, newType, newStat]) => {
+// 监听当前筛选参数并同步备份回 Pinia Store，以维持返回时的条件记忆，并在条件改变时重置懒加载页数
+watch([q, typeFilter, stat, buildingFilter], ([newQ, newType, newStat, newBuild]) => {
   deviceStore.filterQuery = newQ
   deviceStore.filterType = newType
   deviceStore.filterStatus = newStat
+  deviceStore.filterBuilding = newBuild
+  displayLimit.value = 60 // 重置筛选条件时，将渲染上限重置，解决瞬间重排卡顿
 })
 
 // 自定义下拉框状态与引用
 const showTypeDropdown = ref(false)
 const selectWrapRef    = ref(null)
+const showBuildingDropdown = ref(false)
+const buildWrapRef = ref(null)
+const buildInputRef = ref(null)
+const buildingSearchQuery = ref('')
+
+const selectedBuildingName = computed(() => {
+  if (buildingFilter.value === 'all') return '请选择建筑'
+  const found = buildings.value.find(b => b.code === buildingFilter.value)
+  return found ? found.name : '请选择建筑'
+})
+
+// 根据输入过滤下拉大楼选项 (可搜索)
+const filteredBuildings = computed(() => {
+  const qStr = buildingSearchQuery.value.trim().toLowerCase()
+  if (!qStr) return buildings.value
+  return buildings.value.filter(b => (b.name || '').toLowerCase().includes(qStr))
+})
+
+// 监听下拉框的展开，控制聚焦和输入清除
+watch(showBuildingDropdown, (isOpen) => {
+  if (isOpen) {
+    buildingSearchQuery.value = ''
+    setTimeout(() => {
+      buildInputRef.value?.focus()
+    }, 50)
+  }
+})
 
 // ── 生命周期加载 ──────────────────────────────────────────────────────
 onMounted(async () => {
   try {
-    const [res, dictRes] = await Promise.all([
+    const [res, dictRes, buildRes] = await Promise.all([
       getDevices(),
-      getEquipmentTypeDict()
+      getEquipmentTypeDict(),
+      getBuildingList()
     ])
     devices.value = (res || []).map(d => ({ ...d, typeK: d.typeK || parseTypeK(d.type2) }))
     deviceStore.devices = devices.value
     typeDict.value = dictRes || []
+    buildings.value = buildRes || []
   } catch (err) {
     console.error('获取设备及字典数据失败:', err)
   } finally {
     isLoading.value = false
   }
 
-  // 绑定全局点击事件以实现点击外部关闭下拉框
+  // 绑定全局点击事件及滚动懒加载监听，避免全量渲染卡死
   window.addEventListener('click', handleGlobalClick)
+  window.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', handleGlobalClick)
+  window.removeEventListener('scroll', handleScroll)
 })
 
-// 点击外部关闭下拉逻辑
+// 滚动触发加载更多逻辑
+function handleScroll() {
+  const threshold = 200 // 距离底部 200 像素时自动追加加载
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const windowHeight = window.innerHeight
+  const scrollHeight = document.documentElement.scrollHeight
+  
+  if (scrollHeight - scrollTop - windowHeight < threshold) {
+    if (displayLimit.value < filtered.value.length) {
+      displayLimit.value += 40 // 每次顺滑追加 40 个卡片
+    }
+  }
+}
+
+// 点击外部关闭下拉逻辑，使用 isConnected 判定防止被 v-if 销毁的组件节点在冒泡到 window 时触发误判关闭
 function handleGlobalClick(e) {
+  if (e.target && !e.target.isConnected) {
+    return
+  }
   if (selectWrapRef.value && !selectWrapRef.value.contains(e.target)) {
     showTypeDropdown.value = false
   }
+  if (buildWrapRef.value && !buildWrapRef.value.contains(e.target)) {
+    showBuildingDropdown.value = false
+  }
 }
+
+const typeSearchQuery = ref('')
+const typeInputRef = ref(null)
 
 // 选中下拉类型
 function selectType(id) {
@@ -69,12 +128,53 @@ function selectType(id) {
   showTypeDropdown.value = false
 }
 
-// 当前选中的设备类型名称显示
 const selectedTypeName = computed(() => {
-  if (typeFilter.value === 'all') return '全部类型'
+  if (typeFilter.value === 'all') return '请选择设备类型'
   const found = typeDict.value.find(t => t.equipmentTypeId === typeFilter.value)
-  return found ? found.equipmentTypeName : '全部类型'
+  return found ? found.equipmentTypeName : '请选择设备类型'
 })
+
+// 根据输入过滤类型选项 (可搜索)
+const filteredTypes = computed(() => {
+  const qStr = typeSearchQuery.value.trim().toLowerCase()
+  if (!qStr) return typeDict.value
+  return typeDict.value.filter(t => (t.equipmentTypeName || '').toLowerCase().includes(qStr))
+})
+
+// 监听下拉框的展开，控制聚焦和输入清除
+watch(showTypeDropdown, (isOpen) => {
+  if (isOpen) {
+    typeSearchQuery.value = ''
+    setTimeout(() => {
+      typeInputRef.value?.focus()
+    }, 50)
+  }
+})
+
+// 智能切换下拉菜单显示状态，高仿 el-select 点击整体包括 input 均可关闭，并使用时间戳防重入消除一闪而过的闪退 Bug
+let lastBuildingOpenTime = 0
+const toggleBuildingDropdown = () => {
+  const now = Date.now()
+  if (showBuildingDropdown.value) {
+    if (now - lastBuildingOpenTime < 250) return
+    showBuildingDropdown.value = false
+  } else {
+    showBuildingDropdown.value = true
+    lastBuildingOpenTime = now
+  }
+}
+
+let lastTypeOpenTime = 0
+const toggleTypeDropdown = () => {
+  const now = Date.now()
+  if (showTypeDropdown.value) {
+    if (now - lastTypeOpenTime < 250) return
+    showTypeDropdown.value = false
+  } else {
+    showTypeDropdown.value = true
+    lastTypeOpenTime = now
+  }
+}
 
 // ── 统计数据 ──────────────────────────────────────────────────────
 const total      = computed(() => devices.value.length)
@@ -89,6 +189,12 @@ const haveTypes = computed(() => [...new Set(devices.value.map(d => d.typeK))])
 // ── 筛选结果 ──────────────────────────────────────────────────────
 const filtered = computed(() =>
     devices.value.filter(d => {
+      // 增加设备列表（所属建筑）参数筛选
+      if (buildingFilter.value !== 'all') {
+        const bObj = buildings.value.find(b => b.code === buildingFilter.value)
+        const bName = bObj ? bObj.name : buildingFilter.value
+        if (d.building !== bName) return false
+      }
       if (typeFilter.value !== 'all') {
         if (d.equipmentTypeId === typeFilter.value) {
           // 精确匹配
@@ -113,6 +219,11 @@ const filtered = computed(() =>
       return true
     })
 )
+
+// 实际输出给模板渲染的设备列表 (增加懒加载限制)
+const displayedDevices = computed(() => {
+  return filtered.value.slice(0, displayLimit.value)
+})
 
 // 状态标签图标映射
 const STATUS_ICON = {
@@ -195,39 +306,108 @@ const STATUS_ICON = {
           </button>
         </div>
 
-        <!-- 设备类型下拉框（自定义模拟下拉框，与 WizardStepBasic 精细度对应） -->
-        <div class="custom-select-wrap" ref="selectWrapRef">
-          <div class="select-trigger" @click="showTypeDropdown = !showTypeDropdown">
-            <AppIcon 
-              :name="typeFilter === 'all' ? 'filter' : (DEV_TYPE_MAP[parseTypeK(selectedTypeName)]?.icon || 'cube')" 
-              :size="12" 
-              :stroke="typeFilter === 'all' ? 'var(--text-3)' : (DEV_TYPE_MAP[parseTypeK(selectedTypeName)]?.color || 'var(--text-2)')" 
+        <!-- 设备列表下拉框（即建筑维度筛选参数，高仿 el-select） -->
+        <div 
+          :class="['custom-select-wrap', buildingFilter !== 'all' && 'clearable']" 
+          ref="buildWrapRef"
+        >
+          <div class="select-trigger" @click="toggleBuildingDropdown">
+            <!-- 未展开时，只显示文字楼宇名 -->
+            <span v-if="!showBuildingDropdown" class="selected-val" :style="{ color: buildingFilter === 'all' ? 'var(--text-1)' : 'var(--text-0)' }">
+              {{ selectedBuildingName }}
+            </span>
+            <!-- 展开时，变为输入框支持可检索过滤 -->
+            <input 
+              v-else 
+              ref="buildInputRef"
+              v-model="buildingSearchQuery"
+              class="select-search-input"
+              placeholder="请选择建筑"
+              style="border:none; outline:none; background:transparent; padding:0; font-size:13px; color:var(--text-0); width:100%;"
             />
-            <span class="selected-val" :style="{ color: typeFilter === 'all' ? 'var(--text-1)' : 'var(--text-0)', fontWeight: typeFilter === 'all' ? 'normal' : '600' }">{{ selectedTypeName }}</span>
+            
+            <!-- 清空按钮：平时隐藏，Hover 且有选中值时被 CSS 显示并替换箭头 -->
+            <button 
+              v-if="buildingFilter !== 'all'"
+              class="clear-btn" 
+              @click.stop="buildingFilter = 'all'; buildingSearchQuery = ''; showBuildingDropdown = false" 
+              title="清空"
+              style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; border: none; background: transparent; padding: 0; cursor: pointer; color: var(--text-3); transition: color 0.15s; border-radius: 50%; width: 14px; height: 14px; z-index: 10;"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+            <AppIcon name="chevron-down" :size="12" stroke="var(--text-3)" :class="['arrow-icon', showBuildingDropdown && 'rotated']" />
+          </div>
+          
+          <Transition name="dropdown-fade">
+            <div v-show="showBuildingDropdown" class="custom-dropdown-list">
+
+              <div 
+                v-for="b in filteredBuildings" 
+                :key="b.code" 
+                :class="['dropdown-item', buildingFilter === b.code && 'active']"
+                @click="buildingFilter = b.code; showBuildingDropdown = false"
+              >
+                {{ b.name }}
+              </div>
+              <div v-if="filteredBuildings.length === 0" class="dropdown-no-data" style="padding: 10px 12px; text-align: center; color: var(--text-3); font-size: 12.5px;">
+                无匹配数据
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- 设备类型下拉框（自定义模拟下拉框，与 WizardStepBasic 精细度对应，高仿 el-select） -->
+        <div 
+          :class="['custom-select-wrap', typeFilter !== 'all' && 'clearable']" 
+          ref="selectWrapRef"
+        >
+          <div class="select-trigger" @click="toggleTypeDropdown">
+            <!-- 未展开时，只显示文字设备类型名 -->
+            <span v-if="!showTypeDropdown" class="selected-val" :style="{ color: typeFilter === 'all' ? 'var(--text-1)' : 'var(--text-0)' }">
+              {{ selectedTypeName }}
+            </span>
+            <!-- 展开时，变为输入框支持可检索过滤 -->
+            <input 
+              v-else 
+              ref="typeInputRef"
+              v-model="typeSearchQuery"
+              class="select-search-input"
+              placeholder="请选择设备类型"
+              style="border:none; outline:none; background:transparent; padding:0; font-size:13px; color:var(--text-0); width:100%;"
+            />
+            
+            <!-- 清空按钮：平时隐藏，Hover 且有选中值时被 CSS 显示并替换箭头 -->
+            <button 
+              v-if="typeFilter !== 'all'"
+              class="clear-btn" 
+              @click.stop="typeFilter = 'all'; typeSearchQuery = ''; showTypeDropdown = false" 
+              title="清空"
+              style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; border: none; background: transparent; padding: 0; cursor: pointer; color: var(--text-3); transition: color 0.15s; border-radius: 50%; width: 14px; height: 14px; z-index: 10;"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
             <AppIcon name="chevron-down" :size="12" stroke="var(--text-3)" :class="['arrow-icon', showTypeDropdown && 'rotated']" />
           </div>
           
           <Transition name="dropdown-fade">
             <div v-show="showTypeDropdown" class="custom-dropdown-list">
               <div 
-                :class="['dropdown-item', typeFilter === 'all' && 'active']"
-                @click="selectType('all')"
-              >
-                <AppIcon name="cube" :size="13" stroke="var(--text-3)" />
-                全部类型
-              </div>
-              <div 
-                v-for="t in typeDict" 
+                v-for="t in filteredTypes" 
                 :key="t.equipmentTypeId" 
                 :class="['dropdown-item', typeFilter === t.equipmentTypeId && 'active']"
                 @click="selectType(t.equipmentTypeId)"
               >
-                <AppIcon 
-                  :name="DEV_TYPE_MAP[parseTypeK(t.equipmentTypeName)]?.icon || 'cube'" 
-                  :size="13" 
-                  :stroke="DEV_TYPE_MAP[parseTypeK(t.equipmentTypeName)]?.color || 'var(--text-2)'" 
-                />
                 {{ t.equipmentTypeName }}
+              </div>
+              <div v-if="filteredTypes.length === 0" class="dropdown-no-data" style="padding: 10px 12px; text-align: center; color: var(--text-3); font-size: 12.5px;">
+                无匹配数据
               </div>
             </div>
           </Transition>
@@ -252,9 +432,9 @@ const STATUS_ICON = {
 
         <div style="flex:1" />
 
-        <button class="btn ghost" style="padding:7px 14px;font-size:12px">
+        <!-- <button class="btn ghost" style="padding:7px 14px;font-size:12px">
           <AppIcon name="download" :size="12" /> 导出
-        </button>
+        </button> -->
       </div>
     </div>
 
@@ -304,7 +484,7 @@ const STATUS_ICON = {
         <!-- 设备卡片 -->
         <template v-else>
           <div
-              v-for="d in filtered"
+              v-for="d in displayedDevices"
               :key="d.id"
               :class="['dev-tile', d.status]"
               @click="$emit('view-detail', d.id)"
@@ -430,13 +610,35 @@ const STATUS_ICON = {
   position: relative;
   user-select: none;
 }
+/* 清除按钮 Hover 切换逻辑 (高仿 el-select clearable) */
+.custom-select-wrap.clearable:hover .clear-btn {
+  display: flex !important;
+}
+.custom-select-wrap.clearable:hover .arrow-icon {
+  display: none !important;
+}
+.select-trigger .clear-btn {
+  display: none;
+}
+.select-trigger .clear-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-1);
+}
 .select-trigger {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 32px 9px 12px; background: #f5f9ff;
   border: 1px solid var(--line); border-radius: 8px;
   color: var(--text-0); font-size: 13px; cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 140px;
+  width: 150px; /* 固定宽度，防止展开变成输入框时被撑宽 */
+  box-sizing: border-box;
+}
+.selected-val {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 .select-trigger:hover {
   border-color: var(--brand-3);
@@ -467,7 +669,7 @@ const STATUS_ICON = {
   background: #f0f6ff; color: var(--brand);
 }
 .dropdown-item.active {
-  background: #eaf2ff; color: var(--brand); font-weight: 500;
+  background: #eaf2ff; color: var(--brand); font-weight: normal !important;
 }
 
 /* 下拉菜单动画 */

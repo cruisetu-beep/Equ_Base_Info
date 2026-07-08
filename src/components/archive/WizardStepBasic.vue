@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import NameplateOCR from './NameplateOCR.vue'
 import { getBuildingList, getEquipmentTypeDict, getAttributeNames } from '@/api/devices'
@@ -47,9 +47,11 @@ function set(k, v) {
   }
 }
 
-// ── 建筑搜索下拉 ──────────────────────────────────
+// ── 建筑搜索下拉 (高仿 el-select) ───────────────────
 const buildingKeyword = ref(pkg.value.building || '')
 const buildingDropdown = ref(false)
+const buildWrapRef = ref(null)
+const buildInputRef = ref(null)
 
 const filteredBuildings = computed(() =>
   buildings.value.filter(b =>
@@ -65,22 +67,97 @@ function selectBuilding(b) {
   errors.value = { ...errors.value, building: '', buildingCode: '' }
 }
 
-function onBuildingInput(e) {
-  buildingKeyword.value = e.target.value
+function onBuildingInput() {
   buildingDropdown.value = true
   pkg.value = { ...pkg.value, building: '', buildingCode: '' }
   emit('update:data', { ...pkg.value })
 }
 
-function clearBuilding() {
-  buildingKeyword.value = ''
-  buildingDropdown.value = true
-  pkg.value = { ...pkg.value, building: '', buildingCode: '' }
-  emit('update:data', { ...pkg.value })
+let lastBuildingOpenTime = 0
+const toggleBuildingDropdown = () => {
+  const now = Date.now()
+  if (buildingDropdown.value) {
+    if (now - lastBuildingOpenTime < 250) return
+    buildingDropdown.value = false
+  } else {
+    buildingDropdown.value = true
+    lastBuildingOpenTime = now
+  }
 }
 
-function onBuildingBlur() {
-  setTimeout(() => { buildingDropdown.value = false }, 160)
+watch(buildingDropdown, (isOpen) => {
+  if (isOpen) {
+    buildingKeyword.value = ''
+    setTimeout(() => {
+      buildInputRef.value?.focus()
+    }, 50)
+  } else {
+    buildingKeyword.value = pkg.value.building || ''
+  }
+})
+
+// ── 设备类型下拉 (高仿 el-select) ───────────────────
+const typeDropdown = ref(false)
+const typeSearchQuery = ref('')
+const typeWrapRef = ref(null)
+const typeInputRef = ref(null)
+
+const filteredTypes = computed(() => {
+  const qStr = typeSearchQuery.value.trim().toLowerCase()
+  if (!qStr) return typeOptions.value
+  return typeOptions.value.filter(t => (t.equipmentTypeName || '').toLowerCase().includes(qStr))
+})
+
+const selectedTypeName = computed(() => {
+  if (!pkg.value.typeK) return '请选择设备类型'
+  return pkg.value.type2 || '请选择设备类型'
+})
+
+let lastTypeOpenTime = 0
+const toggleTypeDropdown = () => {
+  const now = Date.now()
+  if (typeDropdown.value) {
+    if (now - lastTypeOpenTime < 250) return
+    typeDropdown.value = false
+  } else {
+    typeDropdown.value = true
+    lastTypeOpenTime = now
+  }
+}
+
+watch(typeDropdown, (isOpen) => {
+  if (isOpen) {
+    typeSearchQuery.value = ''
+    setTimeout(() => {
+      typeInputRef.value?.focus()
+    }, 50)
+  }
+})
+
+function selectType(t) {
+  pkg.value = { ...pkg.value, typeK: t.equipmentTypeId, type2: t.equipmentTypeName }
+  emit('update:data', { ...pkg.value })
+  typeDropdown.value = false
+  errors.value = { ...errors.value, typeK: '' }
+}
+
+// ── 全局点击外部关闭 ──────────────────────────────────
+onMounted(() => {
+  window.addEventListener('click', handleGlobalClick)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleGlobalClick)
+})
+
+function handleGlobalClick(e) {
+  if (e.target && !e.target.isConnected) return
+  if (buildWrapRef.value && !buildWrapRef.value.contains(e.target)) {
+    buildingDropdown.value = false
+  }
+  if (typeWrapRef.value && !typeWrapRef.value.contains(e.target)) {
+    typeDropdown.value = false
+  }
 }
 
 // ── 设备参数（动态行）──────────────────────────────
@@ -270,32 +347,41 @@ const progress = computed(() => {
         <div class="info-grid">
         <div :class="['field', errors.building && 'has-err']">
           <label class="field-label">建筑名称 <span class="req">*</span></label>
-          <div class="building-wrap">
-            <input class="input" placeholder="输入关键字搜索..."
-                   :value="buildingKeyword"
-                   :readonly="!!pkg.building"
-                   @input="onBuildingInput"
-                   @focus="buildingDropdown = true"
-                   @blur="onBuildingBlur" />
-            <button v-if="pkg.building" class="b-clear" @mousedown.prevent="clearBuilding">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round">
-                <path d="M1 1l8 8M9 1L1 9"/>
-              </svg>
-            </button>
-            <AppIcon v-else name="chevron-down" :size="14" stroke="var(--text-3)" class="dd-arrow" />
-            <div v-if="buildingDropdown && filteredBuildings.length" class="building-dropdown">
-              <div
-                v-for="b in filteredBuildings" :key="b.code"
-                class="building-option"
-                @mousedown.prevent="selectBuilding(b)"
-              >
-                <span class="b-name">{{ b.name }}</span>
-                <span class="b-code mono">{{ b.code }}</span>
+          <div class="building-wrap" ref="buildWrapRef" style="position: relative; user-select: none;">
+            <div class="select-trigger" @click="toggleBuildingDropdown" style="background: white; cursor: pointer; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text-0); display: flex; align-items: center; justify-content: space-between; height: 38px; box-sizing: border-box;">
+              <span v-if="!buildingDropdown" :class="['selected-val', !pkg.building && 'placeholder']" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; color: pkg.building ? 'var(--text-0)' : 'var(--text-3)';">
+                {{ pkg.building || '请选择建筑' }}
+              </span>
+              <!-- 展开时，变为输入框支持可检索过滤 -->
+              <input 
+                v-else 
+                ref="buildInputRef"
+                v-model="buildingKeyword"
+                class="select-search-input"
+                placeholder="请选择建筑"
+                @input="onBuildingInput"
+                style="border:none; outline:none; background:transparent; padding:0; font-size:13px; color:var(--text-0); width:100%; height:100%; box-sizing: border-box;"
+              />
+              <AppIcon name="chevron-down" :size="12" stroke="var(--text-3)" :class="['arrow-icon', buildingDropdown && 'rotated']" style="transition: transform 0.2s ease; margin-left: 8px; flex-shrink: 0;" />
+            </div>
+
+            <!-- 下拉列表 -->
+            <Transition name="dropdown-fade">
+              <div v-show="buildingDropdown" class="building-dropdown" style="position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 100; background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-height: 220px; overflow-y: auto; padding: 4px; box-sizing: border-box;">
+                <div
+                  v-for="b in filteredBuildings" :key="b.code"
+                  :class="['building-option', pkg.buildingCode === b.code && 'active']"
+                  @mousedown.prevent="selectBuilding(b)"
+                  style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 12.5px; border-radius: 6px; cursor: pointer; transition: all 0.15s; box-sizing: border-box;"
+                >
+                  <span class="b-name" style="color: var(--text-0);">{{ b.name }}</span>
+                  <span class="b-code mono" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3);">{{ b.code }}</span>
+                </div>
+                <div v-if="filteredBuildings.length === 0" style="padding: 12px; text-align: center; color: var(--text-3); font-size: 12px;">
+                  无匹配数据
+                </div>
               </div>
-            </div>
-            <div v-if="buildingDropdown && !pkg.building && filteredBuildings.length === 0" class="building-dropdown">
-              <div class="building-empty">无匹配建筑</div>
-            </div>
+            </Transition>
           </div>
           <div v-if="errors.building" class="err-msg">{{ errors.building }}</div>
         </div>
@@ -326,12 +412,42 @@ const progress = computed(() => {
 
         <div :class="['field', errors.typeK && 'has-err']">
           <label class="field-label">设备类型 <span class="req">*</span></label>
-          <select class="input" :value="pkg.typeK || ''" @change="handleTypeChange">
-            <option value="">请选择设备类型</option>
-            <option v-for="t in typeOptions" :key="t.equipmentTypeId" :value="t.equipmentTypeId">
-              {{ t.equipmentTypeName }}
-            </option>
-          </select>
+          <div class="type-wrap" ref="typeWrapRef" style="position: relative; user-select: none;">
+            <div class="select-trigger" @click="toggleTypeDropdown" style="background: white; cursor: pointer; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text-0); display: flex; align-items: center; justify-content: space-between; height: 38px; box-sizing: border-box;">
+              <!-- 未展开时，只显示选中的设备类型名 -->
+              <span v-if="!typeDropdown" :class="['selected-val', !pkg.typeK && 'placeholder']" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; color: pkg.typeK ? 'var(--text-0)' : 'var(--text-3)';">
+                {{ selectedTypeName }}
+              </span>
+              <!-- 展开时，变为输入框支持可检索过滤 -->
+              <input 
+                v-else 
+                ref="typeInputRef"
+                v-model="typeSearchQuery"
+                class="select-search-input"
+                placeholder="请选择设备类型"
+                style="border:none; outline:none; background:transparent; padding:0; font-size:13px; color:var(--text-0); width:100%; height:100%; box-sizing: border-box;"
+              />
+              <AppIcon name="chevron-down" :size="12" stroke="var(--text-3)" :class="['arrow-icon', typeDropdown && 'rotated']" style="transition: transform 0.2s ease; margin-left: 8px; flex-shrink: 0;" />
+            </div>
+            
+            <!-- 下拉列表 -->
+            <Transition name="dropdown-fade">
+              <div v-show="typeDropdown" class="building-dropdown" style="position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 100; background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-height: 220px; overflow-y: auto; padding: 4px; box-sizing: border-box;">
+                <div 
+                  v-for="t in filteredTypes" 
+                  :key="t.equipmentTypeId" 
+                  :class="['building-option', pkg.typeK === t.equipmentTypeId && 'active']"
+                  @click="selectType(t)"
+                  style="padding: 8px 12px; font-size: 12.5px; border-radius: 6px; cursor: pointer; transition: all 0.15s; color: var(--text-0); text-align: left; box-sizing: border-box;"
+                >
+                  {{ t.equipmentTypeName }}
+                </div>
+                <div v-if="filteredTypes.length === 0" style="padding: 12px; text-align: center; color: var(--text-3); font-size: 12px;">
+                  无匹配数据
+                </div>
+              </div>
+            </Transition>
+          </div>
           <div v-if="errors.typeK" class="err-msg">{{ errors.typeK }}</div>
         </div>
 
@@ -556,6 +672,10 @@ const progress = computed(() => {
   transition: background 0.1s; user-select: none;
 }
 .building-option:hover { background: #f0f6ff; }
+.building-option.active { background: #eaf2ff; font-weight: normal !important; }
+.building-option.active .b-name { color: var(--brand) !important; }
+.building-option.active .b-code { color: var(--brand) !important; opacity: 0.8; }
+.placeholder { color: var(--text-3) !important; }
 .b-name { font-size: 13px; color: var(--text-0); }
 .b-code { font-size: 11px; color: var(--text-3); }
 .b-clear {

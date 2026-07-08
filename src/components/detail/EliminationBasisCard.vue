@@ -59,7 +59,8 @@ const records = computed(() => {
       const ruleId = x.ruleId || x.RuleId || ''
       const matchRule = ruleId ? RULES_LIB_INIT.find(r => r.ruleId === ruleId) : null
       
-      const elimType = x.eliminationType || x.EliminationType || '正常'
+      const rawType = (x.eliminationType || x.EliminationType || '正常').trim()
+      const elimType = rawType.includes('强制') ? '强制淘汰' : (rawType.includes('限期') ? '限期淘汰' : (rawType.includes('过渡') ? '过渡淘汰' : rawType))
       
       // 根据 eliminationType 快速分类 status 样式控制字段 (只要不是正常就是淘汰)
       const status = elimType.trim() === '正常' ? 'normal' : 'phaseout'
@@ -232,7 +233,7 @@ function getTabStyle(rec, isActive) {
     </div>
 
     <!-- 判定流程切换药丸 -->
-    <div class="proc-tabs" style="display:flex; gap:10px; margin-bottom:16px;">
+    <div class="proc-tabs">
       <button 
         v-for="rec in records" 
         :key="rec.judgmentProcess"
@@ -240,12 +241,12 @@ function getTabStyle(rec, isActive) {
         :style="getTabStyle(rec, activeProcess === rec.judgmentProcess)"
         @click="activeProcess = rec.judgmentProcess"
       >
-        {{ rec.judgmentProcess }}
-        <span v-if="rec.judgmentProcess !== '待判定'">
+        <div style="font-weight: 600;">{{ rec.judgmentProcess }}</div>
+        <div v-if="rec.judgmentProcess !== '待判定'" style="font-size: 10px; margin-top: 2px; font-weight: normal; opacity: 0.85;">
           <template v-if="(rec.eliminationType || '').trim() === '正常'">(正常)</template>
           <template v-else-if="(rec.eliminationType || '').includes('低效') || (rec.eliminationType || '').includes('落后')">(低效)</template>
           <template v-else>(淘汰)</template>
-        </span>
+        </div>
       </button>
     </div>
     <!-- 正常运行 (如果当前选中的流程结果是 normal) -->
@@ -445,19 +446,24 @@ function getTabStyle(rec, isActive) {
 /* 切换选项卡 Tabs */
 .proc-tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 16px;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* 允许在多于 4-5 个按钮、或者分辨率极小时优雅折行 */
 }
 .proc-tab {
-  padding: 6px 14px;
-  font-size: 12px;
+  flex: 1 1 90px; /* 默认均分，并限制最小基准宽度 */
+  min-width: 75px; /* 限制按钮的最小宽度，防止文字被挤爆 */
+  padding: 5px 4px; /* 压缩边距 */
+  font-size: 11px; /* 字体微调保证在小宽度下完美容纳 */
+  text-align: center;
+  white-space: nowrap;
   border-radius: 8px;
   border: 1px solid;
   cursor: pointer;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  box-sizing: border-box;
 }
 .proc-tab:hover {
   transform: translateY(-1px);

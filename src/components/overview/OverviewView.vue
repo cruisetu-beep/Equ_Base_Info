@@ -275,11 +275,6 @@ const STATUS_ICON = {
         <div class="v" style="color:var(--warn)">{{ pendingCnt }}<span class="u">台</span></div>
         <div class="d">数据未齐全</div>
       </div>
-      <div class="stat-tile" style="--cl:#ea8c2e">
-        <div class="l"><AppIcon name="warn" :size="12" /> 低效</div>
-        <div class="v" style="color:var(--eol-low)">{{ lowCnt }}<span class="u">台</span></div>
-        <div class="d">建议改造</div>
-      </div>
       <div class="stat-tile danger" style="--cl:#e0394f">
         <div class="l"><AppIcon name="ban" :size="12" /> 淘汰</div>
         <div class="v" style="color:var(--eol-red)">{{ phaseCnt }}<span class="u">台</span></div>
@@ -422,9 +417,6 @@ const STATUS_ICON = {
           <span :class="['chip', stat === 'pending'  && 'active pending-tone']" @click="stat = 'pending'">
             <span class="dot-s" style="background:var(--warn)" />待判定 {{ pendingCnt }}
           </span>
-          <span :class="['chip', stat === 'low_eff'  && 'active warn-tone']"    @click="stat = 'low_eff'">
-            <span class="dot-s" style="background:var(--eol-low)" />低效 {{ lowCnt }}
-          </span>
           <span :class="['chip', stat === 'phaseout' && 'active danger-tone']"  @click="stat = 'phaseout'">
             <span class="dot-s" style="background:var(--eol-red)" />淘汰 {{ phaseCnt }}
           </span>
@@ -540,7 +532,7 @@ const STATUS_ICON = {
 .overview-view { display: flex; flex-direction: column; gap: 20px; }
 
 /* 统计卡 */
-.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .stat-tile {
   padding: 18px 20px;
   background: white;

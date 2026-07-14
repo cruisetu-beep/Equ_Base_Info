@@ -205,13 +205,11 @@ const getDeviceCombinedStatus = (idx, r) => {
     
     if (hasMandatory) return 'phaseout-mandatory'
     if (hasDeadline) return 'phaseout-deadline'
-    if (hasOtherElimination) return 'low_eff'
     return 'normal'
   }
   
   let hasMandatory = false
   let hasDeadline = false
-  let hasOtherElimination = false
   
   Object.keys(deviceEdits).forEach(proc => {
     const type = deviceEdits[proc].eliminationType || ''
@@ -219,14 +217,11 @@ const getDeviceCombinedStatus = (idx, r) => {
       hasMandatory = true
     } else if (type.includes('限期')) {
       hasDeadline = true
-    } else if (type !== '正常') {
-      hasOtherElimination = true
     }
   })
   
   if (hasMandatory) return 'phaseout-mandatory'
   if (hasDeadline) return 'phaseout-deadline'
-  if (hasOtherElimination) return 'low_eff'
   return 'normal'
 }
 

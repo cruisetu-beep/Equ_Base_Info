@@ -464,6 +464,11 @@ function getTabStyle(rec, isActive) {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 46px; /* 固定高度，确保不管是单行待判定还是双行判定，高度均保持一致 */
 }
 .proc-tab:hover {
   transform: translateY(-1px);

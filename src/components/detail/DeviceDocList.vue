@@ -20,7 +20,7 @@ const docs = computed(() => {
     { id: 'f2', cat: 'photo',   name: '设备外观-正面.jpg',        size: 2840 + (seed % 400), date: props.device.updated.slice(0, 10) },
     { id: 'f3', cat: 'manual',  name: `${props.device.model} 使用说明书.pdf`, size: 4820 + (seed % 1000), date: `${props.device.year}-03-12` },
     { id: 'f4', cat: 'archive', name: '采购合同与验收报告.pdf',    size: 1240 + (seed % 300), date: `${props.device.year}-01-20` },
-    ...(props.device.status === 'phaseout' || props.device.status === 'low_eff'
+    ...(props.device.status === 'phaseout'
       ? [{ id: 'f5', cat: 'test', name: '能效检测报告.pdf', size: 1560 + (seed % 200), date: props.device.updated.slice(0, 10) }]
       : []),
   ]

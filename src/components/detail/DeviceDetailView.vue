@@ -80,8 +80,8 @@ async function loadDevice() {
           finalStatus = 'phaseout'
           finalLevel = '过渡淘汰'
         } else if (t.includes('低效')) {
-          finalStatus = 'low_eff'
-          finalLevel = '低效设备'
+          finalStatus = 'normal'
+          finalLevel = '正常运行'
         } else if (t.includes('待判定')) {
           finalStatus = 'pending'
           finalLevel = '待判定'

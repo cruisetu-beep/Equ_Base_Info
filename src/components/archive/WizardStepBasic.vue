@@ -39,7 +39,22 @@ onMounted(async () => {
   }
 })
 
+function preventInvalidKeys(e) {
+  if (['-', '+', 'e', 'E', '.'].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+
 function set(k, v) {
+  if (k === 'equCount') {
+    // 过滤非数字
+    let clean = String(v).replace(/\D/g, '')
+    // 过滤前导0
+    if (clean.startsWith('0')) {
+      clean = clean.replace(/^0+/, '')
+    }
+    v = clean
+  }
   pkg.value = { ...pkg.value, [k]: v }
   emit('update:data', { ...pkg.value })
   if (v && String(v).trim()) {
@@ -289,7 +304,6 @@ function handleTypeChange(e) {
   emit('update:data', { ...pkg.value })
 }
 
-// 必填验证逻辑
 function validate() {
   const errs = {}
   if (!pkg.value.building || !pkg.value.building.trim()) errs.building = '请选择或搜索建筑名称'
@@ -297,6 +311,13 @@ function validate() {
   if (!pkg.value.code || !pkg.value.code.trim()) errs.code = '请输入设备编号'
   if (!pkg.value.name || !pkg.value.name.trim()) errs.name = '请输入设备名称'
   if (!pkg.value.typeK) errs.typeK = '请选择设备类型'
+  
+  if (pkg.value.equCount !== undefined && pkg.value.equCount !== null && String(pkg.value.equCount).trim() !== '') {
+    const val = parseInt(pkg.value.equCount, 10)
+    if (isNaN(val) || val <= 0) {
+      errs.equCount = '设备数量必须大于 0'
+    }
+  }
 
   errors.value = errs
   return Object.keys(errs).length === 0
@@ -451,11 +472,13 @@ const progress = computed(() => {
           <div v-if="errors.typeK" class="err-msg">{{ errors.typeK }}</div>
         </div>
 
-        <div class="field">
+        <div :class="['field', errors.equCount && 'has-err']">
           <label class="field-label">设备数量</label>
           <input class="input mono" type="number" min="1" placeholder="1"
                  :value="pkg.equCount || ''"
+                 @keydown="preventInvalidKeys"
                  @input="e => set('equCount', e.target.value)" />
+          <div v-if="errors.equCount" class="err-msg">{{ errors.equCount }}</div>
         </div>
       </div>
       </div>

@@ -94,7 +94,7 @@ export function judgeDevice(device, rules) {
   let status = 'normal'
   if (hits.some(h => h.rule.actionType === '强制'))      status = 'phaseout-mandatory'
   else if (hits.some(h => h.rule.actionType === '限期')) status = 'phaseout-deadline'
-  else if (hits.some(h => h.rule.actionType === '鼓励')) status = 'low_eff'
+  else                                                   status = 'normal'
 
   return { device, hits, status }
 }

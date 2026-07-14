@@ -301,8 +301,7 @@ function getDeviceIcon(d) {
 function getStatusTagClass(d) {
   if (d.judgeStatus === '未判定') return 'pending'
   const type = d.eliminationType || ''
-  if (type === '正常') return 'normal'
-  if (type.includes('低效') || type.includes('落后')) return 'low_eff'
+  if (type === '正常' || type.includes('低效')) return 'normal'
   return 'phaseout'
 }
 

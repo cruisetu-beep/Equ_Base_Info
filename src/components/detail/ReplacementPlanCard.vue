@@ -25,7 +25,7 @@ defineProps({
     <div class="rpc-empty">
       <div class="ic"><AppIcon name="factory" :size="28" stroke="var(--text-3)" /></div>
       <div class="h">
-        {{ device.status === 'phaseout' || device.status === 'low_eff'
+        {{ device.status === 'phaseout'
           ? '暂无改造计划，可基于判定结果生成建议'
           : '该设备暂无需要更新改造的计划' }}
       </div>
@@ -33,7 +33,7 @@ defineProps({
         生成的计划将包含：替换设备型号 / 预计投资额 / 预计年节省额 / 预计节能量 / 投资回收期 / 审批流程
       </div>
       <button
-        v-if="device.status === 'phaseout' || device.status === 'low_eff'"
+        v-if="device.status === 'phaseout'"
         class="btn primary"
         style="margin-top:14px"
       >

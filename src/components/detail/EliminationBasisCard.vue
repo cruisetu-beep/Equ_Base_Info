@@ -282,7 +282,7 @@ function getTabStyle(rec, isActive) {
           </div>
           <div class="eb-row" v-if="activeRecord.ruleBatch">
             <span class="l">淘汰批次</span>
-            <span class="v mono">{{ activeRecord.ruleBatch }}</span>
+            <span class="v">{{ activeRecord.ruleBatch }}</span>
           </div>
           <div class="eb-row" v-if="activeRecord.ruleId">
             <span class="l">命中规则</span>
@@ -366,7 +366,7 @@ function getTabStyle(rec, isActive) {
 /* 行 */
 .eb-rows { display: flex; flex-direction: column; }
 .eb-row {
-  display: flex; align-items: flex-start; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 9px 14px; gap: 12px; background: #fff;
   border-bottom: 1px solid var(--line);
 }

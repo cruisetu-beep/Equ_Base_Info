@@ -60,6 +60,7 @@ const ICONS = {
   info:        `<circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 12v4"/>`,
   pause:       `<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>`,
   play:        `<path d="M6 4l14 8-14 8V4z"/>`,
+  close:       `<path d="M18 6L6 18M6 6l12 12"/>`,
 }
 </script>
 

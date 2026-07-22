@@ -72,7 +72,7 @@ onMounted(async () => {
       getEquipmentTypeDict(),
       getBuildingList()
     ])
-    devices.value = (res || []).map(d => ({ ...d, typeK: d.typeK || parseTypeK(d.type2) }))
+    devices.value = (res.table || res.rows || res || []).map(d => ({ ...d, typeK: d.typeK || parseTypeK(d.type2) }))
     deviceStore.devices = devices.value
     typeDict.value = dictRes || []
     buildings.value = buildRes || []
@@ -507,7 +507,8 @@ const STATUS_ICON = {
 
             <!-- 原因依据框 -->
             <div v-if="d.reason" class="reason-box" :title="d.reason">
-              <span v-if="d.ruleId" class="rule-id" :title="d.ruleId">{{ d.ruleId }}</span>
+              <span v-if="d.judgmentProcess === '规则判定' && d.ruleId" class="rule-id" :title="d.ruleId">{{ d.ruleId }}</span>
+              <span v-else-if="d.judgmentProcess && d.judgmentProcess !== '规则判定'" class="rule-id" :title="d.judgmentProcess">{{ d.judgmentProcess }}</span>
               <span class="reason-text">{{ d.reason }}</span>
             </div>
 

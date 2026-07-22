@@ -17,7 +17,10 @@ export async function getDevices() {
     await delay()
     return [...SAMPLE_DEVICES]
   }
-  return axios.get(`${BASE_URL}/Equipment/getOverviewList`).then(r => r.data.data || r.data)
+  return axios.get(`${BASE_URL}/Equipment/getOverviewList`).then(r => {
+    const res = r.data.data || r.data
+    return res.table || res.rows || res || []
+  })
 }
 
 /**

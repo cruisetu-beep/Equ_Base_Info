@@ -5,6 +5,7 @@ import { RULES_LIB_INIT } from '@/data/rules'
 import { getRuleDetail } from '@/api/rules'
 import DeviceArchive from './DeviceArchive.vue'
 import RuleDetailModal from './RuleDetailModal.vue'
+import AIDetailModal from './AIDetailModal.vue'
 
 const props = defineProps({
   device: { type: Object, required: true },
@@ -127,7 +128,8 @@ const records = computed(() => {
         ruleId: ruleId,
         ruleBatch: ruleBatch,
         ruleDeadline: ruleDeadline,
-        isRealRule: process === '规则判定' && !!ruleId
+        isRealRule: !!ruleId,
+        f_tag: x.f_tag || x.fTag || x.F_Tag || x.F_tag || ''
       }
     })
   }
@@ -170,9 +172,7 @@ const handleViewRecordRule = async (ruleId) => {
 const activeProcess = ref("规则判定")
 watch(records, (newRecs) => {
   if (newRecs && newRecs.length > 0) {
-    if (!newRecs.some(r => r.judgmentProcess === activeProcess.value)) {
-      activeProcess.value = newRecs[0].judgmentProcess
-    }
+    activeProcess.value = newRecs[0].judgmentProcess
   }
 }, { immediate: true })
 
@@ -223,13 +223,31 @@ function getTabStyle(rec, isActive) {
     }
   }
 }
+
+const showTagModal = ref(false)
+const parsedTag = computed(() => {
+  if (!activeRecord.value || activeRecord.value.judgmentProcess !== 'AI判定') return null
+  if (!activeRecord.value.f_tag) return null
+  try {
+    if (typeof activeRecord.value.f_tag === 'object') return activeRecord.value.f_tag
+    return JSON.parse(activeRecord.value.f_tag)
+  } catch (e) {
+    console.error("解析 f_tag 失败:", e)
+    return null
+  }
+})
 </script>
 
 <template>
   <div class="card dd-card">
-    <div class="dd-card-head">
-      <AppIcon name="rule" :size="16" stroke="var(--brand)" />
-      <h3>淘汰判定详情</h3>
+    <div class="dd-card-head" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <AppIcon name="rule" :size="16" stroke="var(--brand)" />
+        <h3>淘汰判定详情</h3>
+      </div>
+      <button v-if="parsedTag" class="view-tag-btn" @click="showTagModal = true">
+        <AppIcon name="search" :size="11" /> AI判定详情
+      </button>
     </div>
 
     <!-- 判定流程切换药丸 -->
@@ -316,6 +334,9 @@ function getTabStyle(rec, isActive) {
 
     <!-- 规则详情弹窗 -->
     <RuleDetailModal :rule="showRuleModal ? selectedRule : null" @close="showRuleModal = false" />
+
+    <!-- AI 判定明细弹窗 -->
+    <AIDetailModal :tag="showTagModal ? parsedTag : null" @close="showTagModal = false" />
   </div>
 </template>
 
@@ -478,5 +499,12 @@ function getTabStyle(rec, isActive) {
   transform: translateY(0);
 }
 
-
+.view-tag-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; font-size: 10px; color: var(--brand);
+  background: white; border: 1px solid var(--line-strong);
+  border-radius: 5px; cursor: pointer; flex-shrink: 0;
+  font-weight: normal; line-height: 1;
+}
+.view-tag-btn:hover { border-color: var(--brand); background: rgba(47,127,255,0.06); }
 </style>

@@ -226,7 +226,7 @@ function getTabStyle(rec, isActive) {
 
 const showTagModal = ref(false)
 const parsedTag = computed(() => {
-  if (!activeRecord.value || activeRecord.value.judgmentProcess !== 'AI判定') return null
+  if (!activeRecord.value) return null
   if (!activeRecord.value.f_tag) return null
   try {
     if (typeof activeRecord.value.f_tag === 'object') return activeRecord.value.f_tag
@@ -246,7 +246,7 @@ const parsedTag = computed(() => {
         <h3>淘汰判定详情</h3>
       </div>
       <button v-if="parsedTag" class="view-tag-btn" @click="showTagModal = true">
-        <AppIcon name="search" :size="11" /> AI判定详情
+        <AppIcon name="search" :size="11" /> {{ activeRecord.judgmentProcess }}详情
       </button>
     </div>
 
